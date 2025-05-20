@@ -1,19 +1,33 @@
-import { StyleSheet, Alert  } from 'react-native';
+import { StyleSheet, Alert, Button } from 'react-native';
+import React, { useState } from 'react';
 
-import EditScreenInfo from '@/components/EditScreenInfo';
+import { useNavigation } from '@react-navigation/native';
 import { Text, View } from '@/components/Themed';
 import MapboxAutocomplete from '@/components/MapboxAutocomplete';
 
-export default function TabOneScreen() {
-  const handleSelect = (place) => {
-    // Alert.alert('Selected Place', place.place_name);
-    // Or use place.geometry.coordinates for latitude/longitude
+export default function MainScreen() {
+  const navigation = useNavigation();
+
+  const [origin, setOrigin] = useState(null);
+  const [destination, setDestination] = useState(null);
+
+  const handleGo = () => {
+    if (!origin || !destination) {
+      Alert.alert('Please select both origin and destination');
+      return;
+    }
+
+    navigation.navigate('route', {
+      origin,
+      destination,
+    });
   };
 
   return (
     <View style={styles.container}>
-      <MapboxAutocomplete placeholder="Enter Origin" onSelect={handleSelect} />
-      <MapboxAutocomplete placeholder="Enter Destination" onSelect={handleSelect} />
+      <MapboxAutocomplete placeholder="Enter Origin" onSelect={setOrigin} />
+      <MapboxAutocomplete placeholder="Enter Destination" onSelect={setDestination} />
+      <Button title="Go" onPress={handleGo} />
     </View>
   );
 }

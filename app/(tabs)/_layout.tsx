@@ -52,14 +52,14 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="two"
+        name="route"
         options={{
           title: 'Route',
           tabBarIcon: ({ color }) => <TabBarIcon icon={FontAwesome5} name="route" color={color} />,
         }}
       />
       <Tabs.Screen
-        name="three"
+        name="map"
         options={{
           title: 'Map',
           tabBarIcon: ({ color }) => <TabBarIcon icon={FontAwesome} name="map-o" color={color} />,
