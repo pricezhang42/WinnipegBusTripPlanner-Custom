@@ -2,7 +2,7 @@ import { StyleSheet, ScrollView, Pressable } from 'react-native';
 import React, { useEffect, useState } from 'react';
 import RouteRetrieve from '@/components/RouteRetrieve';
 import { useRoute } from '@react-navigation/native';
-import { Text, View } from '@/components/Themed';
+import { Text } from '@/components/Themed';
 import { useNavigation } from '@react-navigation/native';
 
 export default function RouteScreen() {
@@ -11,11 +11,15 @@ export default function RouteScreen() {
   const { origin, destination, date, time, travelMode } = route.params || {};
 
   const [plans, setPlans] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [shelters, setShelters] = useState({});
+
+  const routeRetrieve = new RouteRetrieve();
 
   const fetchPlans = async () => {
     if (!origin || !destination) return;
-    const routeRetrieve = new RouteRetrieve();
+  
+    setLoading(true);
     const result = await routeRetrieve.getPlans(
       origin.geometry.coordinates,
       destination.geometry.coordinates,
@@ -23,9 +27,48 @@ export default function RouteScreen() {
       time,
       travelMode
     );
+  
     setPlans(result || []);
     setLoading(false);
+  
+    // Fetch shelters for all stops in all segments
+    const shelterMap = {};
+  
+    for (const plan of result || []) {
+      let totalTimeSheltered = 0;
+      for (const segment of plan.segments || []) {
+        const stopKey = segment.to?.stop?.key;
+        if (stopKey && !shelterMap[stopKey]) {
+          try {
+            const shelter = await routeRetrieve.fetchStopShelter(stopKey);
+            shelterMap[stopKey] = shelter;
+            if ((segment.type === "transfer" || segment.type === "walk") && shelter !== 'Unsheltered' && segment.times.durations.waiting) {
+              totalTimeSheltered += segment.times.durations.waiting;
+            }
+          } catch (e) {
+            console.warn('Failed to fetch shelter for stop', stopKey, e);
+          }
+        }
+      }
+      plan['totalTimeSheltered'] = totalTimeSheltered;
+    }
+  
+    setShelters(shelterMap);
   };
+
+  const getShelterClass = (shelterType: string) => {
+    switch (shelterType) {
+      case 'Heated Shelter':
+        return 'shelterHeated';
+      case 'Unheated Shelter':
+        return 'shelterUnheated';
+      case 'Unsheltered':
+        return 'unsheltered';
+      default:
+        return '';
+    }
+  };
+  
 
   useEffect(() => {
     fetchPlans();
@@ -33,6 +76,9 @@ export default function RouteScreen() {
 
   const renderSegment = (segment, index) => {
     const startTime = segment.times?.start?.substring(11, 16);
+    const stopKey = segment.to?.stop?.key;
+    const shelter = stopKey ? shelters[stopKey] : null;
+  
     if (segment.type === 'ride') {
       return (
         <Text key={index} style={styles.segment}>
@@ -43,19 +89,26 @@ export default function RouteScreen() {
       return (
         <Text key={index} style={styles.segment}>
           ● <Text style={styles.bold}>Walk:</Text> ({startTime}) {segment.times.durations.walking} min
-          {segment.to?.stop?.shelter ? ` (${segment.to.stop.shelter})` : ''}
+          {shelter ? (
+            <Text style={styles[getShelterClass(shelter)]}> ({shelter})</Text>
+          ) : null}
         </Text>
       );
     } else if (segment.type === 'transfer') {
       return (
         <Text key={index} style={styles.segment}>
           ● <Text style={styles.bold}>Transfer:</Text> ({startTime}) Walking: {segment.times.durations.walking} min, Waiting: {segment.times.durations.waiting} min
-          {segment.to?.stop?.shelter ? ` (${segment.to.stop.shelter})` : ''}
+          {shelter ? (
+            <Text style={styles[getShelterClass(shelter)]}> ({shelter})</Text>
+          ) : null}
         </Text>
       );
     }
+  
     return null;
   };
+  
+  
 
   const renderCard = (plan, index) => (
     <Pressable
@@ -65,29 +118,27 @@ export default function RouteScreen() {
         pressed && styles.cardPressed
       ]}
       onPress={() => {
-        // Currently does nothing; ready for interaction
         console.log(`Pressed route ${index + 1}`);
-        // console.log(plans[index]);
         navigation.navigate('map', {
           route: plans[index],
         });
       }}
     >
-      <Text style={styles.cardTitle}>Route {index + 1}</Text>
+      <Text style={styles.cardTitle}>Total Time: {plan.times.durations.total} min</Text>
+      <Text style={styles.cardTitle}>Time Outside: {plan.times.durations.waiting+plan.times.durations.walking} min ({plan.totalTimeSheltered} min sheltered)</Text>
       {plan.segments.map((segment, i) => renderSegment(segment, i))}
     </Pressable>
   );
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.header}>Route Options</Text>
-      <Text style={styles.subHeader}>Origin: {origin?.place_name || 'Not provided'}</Text>
-      <Text style={styles.subHeader}>Destination: {destination?.place_name || 'Not provided'}</Text>
+      {/* <Text style={styles.subHeader}>FROM: {origin?.place_name || 'Not provided'}</Text>
+      <Text style={styles.subHeader}>TO: {destination?.place_name || 'Not provided'}</Text> */}
 
       {loading ? (
         <Text>Loading route plans...</Text>
       ) : plans.length === 0 ? (
-        <Text>No route plans found.</Text>
+        <Text>Please enter origin and destination.</Text>
       ) : (
         plans.map((plan, i) => renderCard(plan, i))
       )}
@@ -119,9 +170,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#e0e0e0',
   },
   cardTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: 'bold',
-    marginBottom: 6,
+    marginBottom: 3,
   },
   segment: {
     fontSize: 13,
@@ -130,49 +181,13 @@ const styles = StyleSheet.create({
   bold: {
     fontWeight: 'bold',
   },
+  shelterHeated: {
+    color: 'green',
+  },
+  shelterUnheated: {
+    color: 'blue',
+  },
+  unsheltered: {
+    color: 'red',
+  },
 });
-
-
-//   return (
-//     <View style={styles.container}>
-//       <Text style={styles.title}>Origin:</Text>
-//       <Text>{origin?.place_name || 'Not provided'}</Text>
-//       <Text>{origin?.geometry.coordinates[1]}, {origin?.geometry.coordinates[0]}</Text>
-
-//       <Text style={styles.title}>Destination:</Text>
-//       <Text>{destination?.place_name || 'Not provided'}</Text>
-//       <Text>{destination?.geometry.coordinates[1]}, {destination?.geometry.coordinates[0]}</Text>
-
-//       <Text style={styles.title}>Plans:</Text>
-//       {loading ? (
-//         <Text>Loading plans...</Text>
-//       ) : (
-//         plans.length === 0 ? (
-//           <Text>No plans found.</Text>
-//         ) : (
-//           plans.map((plan, index) => (
-//             <View key={index} style={{ marginTop: 10 }}>
-//               <Text>Plan {index + 1}</Text>
-//               {/* You can customize what to display based on `plan` structure */}
-//               <Text>Segments: {plan.segments?.length ?? 0}</Text>
-//             </View>
-//           ))
-//         )
-//       )}
-//     </View>
-//   );
-// }
-
-// const styles = StyleSheet.create({
-//   container: {
-//     flex: 1,
-//     padding: 20,
-//     alignItems: 'flex-start',
-//     justifyContent: 'flex-start',
-//   },
-//   title: {
-//     fontSize: 18,
-//     fontWeight: 'bold',
-//     marginTop: 10,
-//   },
-// });

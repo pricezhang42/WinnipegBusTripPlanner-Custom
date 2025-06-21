@@ -27,7 +27,7 @@ export default function MainScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [pickerMode, setPickerMode] = useState<'date' | 'time'>('date');
   const [travelMode, setTravelMode] = useState('depart-after');
-  const [useNow, setUseNow] = useState(false);
+  const [useNow, setUseNow] = useState(true);
 
   const showPicker = (type: 'date' | 'time') => {
     setPickerMode(type);
@@ -78,7 +78,7 @@ export default function MainScreen() {
         style={styles.input}
       />
 
-      {/* Row 1: Date + Time + Now */}
+      {/* Row 3: Date + Time + Now */}
       <View style={styles.row}>
         <TouchableOpacity
           style={[styles.timeBox, useNow && styles.disabledBox]}
@@ -113,7 +113,7 @@ export default function MainScreen() {
         </View>
       </View>
 
-      {/* Row 2: Mode + Go Button */}
+      {/* Row 4: Mode + Go Button */}
       <View style={styles.bottomRow}>
         <View style={styles.modePickerWrapper}>
           <Picker

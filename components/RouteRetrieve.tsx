@@ -1,9 +1,6 @@
 import axios from 'axios';
 
 class RouteRetrieve {
-    // name is a private member variable
-    // public constructor(private name: string) {}
-
     private autocompleteAPI = 'https://winnipegtransit.com/api/v2/navigo/autocomplete';
     private tripPlannerAPI = 'https://api.winnipegtransit.com/v3/trip-planner.json';
     private stopAPI = 'https://api.winnipegtransit.com/v3/stops/';
@@ -50,12 +47,29 @@ class RouteRetrieve {
                 console.error('Error fetching data:', error.response.data);
             });
     }
-  
-    // public getName(): string {
-    //   return this.name;
-    // }
+
+    private getStopFeatures = async (stopKey: string) => {
+        return this.sendRequest(this.stopAPI + stopKey + '/features.json', { params: { 'api-key': this.apiKey } })
+            .then(response => {
+                return response.data['stop-features'];
+            })
+            .catch(error => {
+                console.error('Error fetching data:', error);
+            });
+    }
+    
+    // Function to check if a stop is sheltered
+    public fetchStopShelter = async (stopKey: string) => {
+        const features = await this.getStopFeatures(stopKey);
+        for (const feature of features) {
+            if (feature.name === 'Heated Shelter') {
+                return 'Heated Shelter';
+            } else if (feature.name === 'Unheated Shelter') {
+                return 'Unheated Shelter';
+            }
+        }
+        return 'Unsheltered';
+    }
   }
   
 export default RouteRetrieve;
-//   const person = new Person("Jane");
-//   console.log(person.getName());
