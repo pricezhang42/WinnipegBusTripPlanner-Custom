@@ -1,8 +1,7 @@
 import { StyleSheet, Platform } from 'react-native';
 import React, { useEffect, useState } from 'react';
-import MapView, { Polyline, UrlTile } from 'react-native-maps';
-import { useLocalSearchParams } from 'expo-router';
-import { Text, View } from '@/components/Themed';
+import MapView, { Marker, Polyline, UrlTile } from 'react-native-maps';
+import { Text } from '@/components/Themed';
 import { useRoute } from '@react-navigation/native';
 
 // Define a color palette
@@ -13,6 +12,12 @@ interface Coordinate {
   latitude: number;
   longitude: number;
 }
+
+type RouteData = {
+  origin: Coordinate;
+  destination: Coordinate;
+  points: Coordinate[];
+};
 
 interface Ride {
   bus: string;
@@ -45,7 +50,7 @@ export default function MapScreen() {
   // const { route: rawRoute } = useLocalSearchParams<{ route?: string }>();
 
   const [error, setError] = useState<string | null>(null);
-  const [routeData, setRouteData] = useState<Coordinate[][]>([]);
+  const [routeData, setRouteData] = useState<RouteData[]>([]);
 
   const squareDistanceOfTwoPoints = (a: Coordinate, b: Coordinate): number => {
     return (a.latitude - b.latitude) ** 2 + (a.longitude - b.longitude) ** 2;
@@ -204,14 +209,8 @@ export default function MapScreen() {
     return null;
   };
 
-  const parseRoute = (raw: any): Route | null => {
-    try {
-      return JSON.parse(decodeURIComponent(raw));
-    } catch(err) {
-      console.error('Error parsing route data:', err);
-      return null;
-    }
-  };
+  const parsedRoute: Route | null = typeof rawRoute === 'string' ? parseRoute(rawRoute) : rawRoute;
+  if (!parsedRoute) return null;
 
   const fetchRouteData = async (rides: Ride[]) => {
     try {
@@ -232,12 +231,16 @@ export default function MapScreen() {
           const relation = findRelationWithNodes(data, originNode.id, destinationNode.id);
           if (!relation) {
             console.warn("No matching relation found for origin and destination nodes.");
-            return [originNode.coordinates, destinationNode.coordinates];
+            return {
+              origin: originNode.coordinates,
+              destination: destinationNode.coordinates,
+              points: [originNode.coordinates, destinationNode.coordinates],
+            };
           } 
 
           const nodes = extractAllNodes(relation);
           const points = extractWayCoordinates(relation, nodes);
-          return extractCoordinatesBetweenStops(points, originNode.coordinates, destinationNode.coordinates);
+          return {origin:originNode.coordinates, destination:destinationNode.coordinates, points:extractCoordinatesBetweenStops(points, originNode.coordinates, destinationNode.coordinates)};
         })
       );
       // console.log(routeDataList);
@@ -267,7 +270,7 @@ export default function MapScreen() {
         const prevSeg = route.segments[index - 1];
         const fromGeo = getGeographic(prevSeg?.to);
 
-        if (toGeo && fromGeo) {
+        if (segment.route?.key && toGeo && fromGeo) {
           rides.push({
             bus: segment.route.key,
             origin: {
@@ -308,14 +311,18 @@ export default function MapScreen() {
         maximumZ={19}
         zIndex={-1}
       />
-      {routeData.map((coordinates, index) => (
+      {routeData.map((route, index) => (
       <React.Fragment key={index}>
-        <Polyline
-          coordinates={coordinates}
-          strokeWidth={3}
-          strokeColor={colorPalette[index % colorPalette.length]} // Assign color based on index
-          zIndex={1} // Render above UrlTile
-        />
+        {route.points && (
+          <Polyline
+            coordinates={route.points}
+            strokeWidth={3}
+            strokeColor={colorPalette[index % colorPalette.length]}
+            zIndex={1}
+          />
+        )}
+        <Marker coordinate={route.origin} pinColor={colorPalette[index % colorPalette.length]} title="Origin" />
+        <Marker coordinate={route.destination} pinColor={colorPalette[index % colorPalette.length]} title="Destination" />
       </React.Fragment>
       ))}
       {error && <Text style={{ color: 'red', position: 'absolute', top: 10 }}>{error}</Text>}
