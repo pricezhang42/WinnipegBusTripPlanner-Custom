@@ -38,6 +38,7 @@
     "react-native-web": "~0.20.0"
   },
   "devDependencies": {
+    "@react-native-community/cli": "latest",
     "@babel/core": "^7.25.2",
     "@types/react": "~19.0.10",
     "jest": "^29.2.1",
