@@ -209,9 +209,6 @@ export default function MapScreen() {
     return null;
   };
 
-  const parsedRoute: Route | null = typeof rawRoute === 'string' ? parseRoute(rawRoute) : rawRoute;
-  if (!parsedRoute) return null;
-
   const fetchRouteData = async (rides: Ride[]) => {
     try {
       setRouteData([]);
