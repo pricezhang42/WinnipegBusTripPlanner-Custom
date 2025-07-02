@@ -1,4 +1,5 @@
 import axios from 'axios';
+import {Alert} from 'react-native';
 
 class RouteRetrieve {
     private autocompleteAPI = 'https://winnipegtransit.com/api/v2/navigo/autocomplete';
@@ -44,7 +45,12 @@ class RouteRetrieve {
                 return response.data.plans;
             })
             .catch(error => {
-                console.error('Error fetching data:', error.response.data);
+                var errorMessage = error.response.data
+                if (errorMessage === "Coordinates not in zone 14U") {
+                    errorMessage = "Origin or destination not in Winnipeg"
+                }
+                Alert.alert('Error fetching data:', errorMessage);
+                // console.error('Error fetching data:', error.response.data);
             });
     }
 
@@ -54,7 +60,8 @@ class RouteRetrieve {
                 return response.data['stop-features'];
             })
             .catch(error => {
-                console.error('Error fetching data:', error);
+                Alert.alert('Error fetching data:', error.response.data);
+                // console.error('Error fetching data:', error);
             });
     }
     
