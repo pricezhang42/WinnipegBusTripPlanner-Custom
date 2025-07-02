@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, TextInput, FlatList, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TextInput, FlatList, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import axios from 'axios';
 
 const MAPBOX_TOKEN = 'pk.eyJ1IjoicmFtZXI0MiIsImEiOiJjbTd0YW9hMDUwb3dkMmtwbDIxYzlrMG1uIn0.RI7UnUqXMAh0IbYZNqRFMA';;
@@ -30,8 +30,15 @@ const MapboxAutocomplete = ({ placeholder, onSelect }) => {
       );
       setResults(response.data.features);
     } catch (error) {
-      console.error('Error fetching suggestions', error);
+      Alert.alert('Error fetching suggestions', getErrorMessage(error));
     }
+  };
+
+  const getErrorMessage = (err: any) => {
+    if (typeof err === 'string') return err;
+    if (err?.message) return err.message;
+    if (typeof err === 'object') return JSON.stringify(err);
+    return 'Unknown error';
   };
 
   return (
