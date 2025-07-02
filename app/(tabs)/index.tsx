@@ -32,6 +32,7 @@ export default function MainScreen() {
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(false);
   const [shelters, setShelters] = useState({});
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 
   const routeRetrieve = new RouteRetrieve();
 
@@ -96,6 +97,7 @@ export default function MainScreen() {
     setShelters(shelterMap);
     setPlans(result || []);
     setLoading(false);
+    setSelectedIndex(null);
   };
 
   const getShelterClass = (type) => {
@@ -138,8 +140,15 @@ export default function MainScreen() {
   const renderCard = ({ item, index }) => (
     <Pressable
       key={index}
-      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
-      onPress={() => navigation.navigate('map', { route: item })}
+      style={({ pressed }) => [
+        styles.card,
+        pressed && styles.cardPressed,
+        selectedIndex === index && styles.cardSelected,
+      ]}
+      onPress={() => {
+        setSelectedIndex(index);
+        navigation.navigate('map', { route: item });
+      }}
     >
       <Text style={styles.cardTitle}>Total Time: {item.times.durations.total} min</Text>
       <Text style={styles.cardTitle}>
@@ -225,7 +234,6 @@ export default function MainScreen() {
           )}
 
           {loading && <Text>Loading route plans…</Text>}
-          {/* {!loading && plans.length === 0 && <Text>Please enter origin and destination.</Text>} */}
         </>
       }
     />
@@ -305,6 +313,11 @@ const styles = StyleSheet.create({
   },
   cardPressed: {
     backgroundColor: '#e0e0e0',
+  },
+  cardSelected: {
+    borderWidth: 2,
+    borderColor: '#007AFF',
+    backgroundColor: '#d0e8ff',
   },
   cardTitle: {
     fontSize: 14,
