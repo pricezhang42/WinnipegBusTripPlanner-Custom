@@ -28,6 +28,7 @@ export default function MainScreen() {
   const [pickerMode, setPickerMode] = useState<'date' | 'time'>('date');
   const [travelMode, setTravelMode] = useState('depart-after');
   const [useNow, setUseNow] = useState(true);
+  const [enableNapAlarm, setEnableNapAlarm] = useState(false);
 
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -147,7 +148,7 @@ export default function MainScreen() {
       ]}
       onPress={() => {
         setSelectedIndex(index);
-        navigation.navigate('map', { route: item });
+        navigation.navigate('map', { route: item, enableNapAlarm });
       }}
     >
       <Text style={styles.cardTitle}>Total Time: {item.times.durations.total} min</Text>
@@ -198,6 +199,11 @@ export default function MainScreen() {
             <View style={styles.switchWrapper}>
               <Text style={styles.switchLabel}>Now</Text>
               <Switch value={useNow} onValueChange={setUseNow} />
+            </View>
+
+            <View style={styles.switchWrapper}>
+              <Text style={styles.switchLabel}>Nap Alarm</Text>
+              <Switch value={enableNapAlarm} onValueChange={setEnableNapAlarm} />
             </View>
           </View>
 
@@ -253,7 +259,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 20,
-    flexWrap: 'nowrap',
+    flexWrap: 'wrap',
   },
   timeBox: {
     borderWidth: 1,
@@ -262,6 +268,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 5,
     marginRight: 10,
+    marginBottom: 10,
   },
   disabledBox: {
     backgroundColor: '#f0f0f0',
@@ -271,9 +278,10 @@ const styles = StyleSheet.create({
     color: '#888',
   },
   switchWrapper: {
-    marginLeft: 15,
     flexDirection: 'row',
     alignItems: 'center',
+    marginHorizontal: 5,
+    marginBottom: 10,
   },
   switchLabel: {
     marginRight: 5,
