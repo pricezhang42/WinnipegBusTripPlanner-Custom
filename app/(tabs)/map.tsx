@@ -10,6 +10,8 @@ import MapView, { Marker, Polyline, UrlTile, Circle } from 'react-native-maps';
 import { Text } from '@/components/Themed';
 import { useRoute } from '@react-navigation/native';
 import * as Location from 'expo-location';
+import * as Haptics from 'expo-haptics';
+import { playSoundAsync } from 'expo-audio';
 
 const colorPalette = ['blue', 'black', 'green'];
 
@@ -47,15 +49,17 @@ const DEFAULT_LOCATION: Coordinate = {
 };
 
 export default function MapScreen() {
-  const mapRef = useRef<MapView>(null); // ✅ Add ref for MapView
+  const mapRef = useRef<MapView>(null);
   const route = useRoute();
-  const { route: rawRoute } = route.params || {};
+  const { route: rawRoute, enableNapAlarm } = route.params || {};
+  const ridesRef = useRef<Ride[]>([]);
 
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [routeData, setRouteData] = useState<RouteData[]>([]);
   const [userLocation, setUserLocation] = useState<Coordinate>(DEFAULT_LOCATION);
   const [pulseRadius, setPulseRadius] = useState(40);
+  const [alertedStops, setAlertedStops] = useState<Set<string>>(new Set());
 
   const squareDistanceOfTwoPoints = (a: Coordinate, b: Coordinate): number =>
     (a.latitude - b.latitude) ** 2 + (a.longitude - b.longitude) ** 2;
@@ -305,8 +309,10 @@ export default function MapScreen() {
   useEffect(() => {
     const route = rawRoute;
     if (!route || !route.segments) return;
+    // console.log(route);
 
-    const rides: Ride[] = [];
+    ridesRef.current = [];
+    const rides = ridesRef.current;
     let skipSeg = false;
 
     route.segments.forEach((segment, index) => {
@@ -346,10 +352,43 @@ export default function MapScreen() {
     }
   }, [rawRoute]);
 
+  useEffect(() => {
+    const rides = ridesRef.current;
+    if (!enableNapAlarm || !rawRoute || rides.length === 0) return;
+  
+    (async () => {
+      for (const ride of rides) {
+        const stopName = ride.destination.name;
+        console.log(alertedStops);
+        if (alertedStops.has(stopName)) continue;
+  
+        const stopLocation: Coordinate = {
+          latitude: ride.destination.latitude,
+          longitude: ride.destination.longitude,
+        };
+  
+        const distanceSq = squareDistanceOfTwoPoints(userLocation, stopLocation);
+        console.log(distanceSq);
+        if (distanceSq < 0.00001) {
+          try {
+            await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            await playSoundAsync({ source: require('@/assets/alert.mp3') });
+          } catch (e) {
+            console.warn('Alarm error', e);
+          }
+  
+          Alert.alert('Wake up!', `You're near: ${stopName}`);
+          setAlertedStops(prev => new Set(prev).add(stopName));
+          break;
+        }
+      }
+    })();
+  }, [userLocation]);
+  
   return (
     <View style={styles.container}>
       <MapView
-        ref={mapRef} // ✅ attach ref
+        ref={mapRef}
         style={{ flex: 1 }}
         initialRegion={{
           latitude: DEFAULT_LOCATION.latitude,
