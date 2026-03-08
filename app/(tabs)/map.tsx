@@ -48,6 +48,11 @@ const DEFAULT_LOCATION: Coordinate = {
   longitude: -97.1384,
 };
 
+const OVERPASS_ENDPOINTS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+];
+
 export default function MapScreen() {
   const mapRef = useRef<MapView>(null);
   const route = useRoute();
@@ -69,6 +74,41 @@ export default function MapScreen() {
     if (err?.message) return err.message;
     if (typeof err === 'object') return JSON.stringify(err);
     return 'Unknown error';
+  };
+
+  const escapeOverpassString = (value: string) =>
+    value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+
+  const fetchOverpassJson = async (query: string): Promise<any> => {
+    let lastError: unknown = null;
+
+    for (const endpoint of OVERPASS_ENDPOINTS) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20000);
+
+      try {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain; charset=UTF-8' },
+          body: query,
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status} ${response.statusText}`);
+        }
+
+        return await response.json();
+      } catch (err) {
+        lastError = err;
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    }
+
+    throw new Error(
+      `Overpass request failed on all endpoints: ${getErrorMessage(lastError)}`
+    );
   };
 
   const updateUserLocation = async () => {
@@ -156,6 +196,11 @@ export default function MapScreen() {
           });
         } catch (subErr) {
           console.warn('Failed to process one ride segment:', subErr);
+          routeDataList.push({
+            origin: ride.origin,
+            destination: ride.destination,
+            points: [ride.origin, ride.destination],
+          });
         }
       }
 
@@ -262,31 +307,25 @@ export default function MapScreen() {
 
   const fetchRouteAndNodes = async (ride: Ride): Promise<any> => {
     try {
+      const escapedBus = escapeOverpassString(ride.bus);
+      const escapedOriginName = escapeOverpassString(ride.origin.name);
+      const escapedDestinationName = escapeOverpassString(ride.destination.name);
+
       const query = `
         [out:json][timeout:25];
         area[name="Winnipeg"]->.searchArea;
         (
-          relation["type"="route"]["route"="bus"]["ref"="${ride.bus}"](area.searchArea);
-          node["public_transport"="platform"]["name"="${ride.origin.name}"](area.searchArea);
-          node["highway"="bus_stop"]["name"="${ride.origin.name}"](area.searchArea);
-          node["public_transport"="platform"]["name"="${ride.destination.name}"](area.searchArea);
-          node["highway"="bus_stop"]["name"="${ride.destination.name}"](area.searchArea);
+          relation["type"="route"]["route"="bus"]["ref"="${escapedBus}"](area.searchArea);
+          node["public_transport"="platform"]["name"="${escapedOriginName}"](area.searchArea);
+          node["highway"="bus_stop"]["name"="${escapedOriginName}"](area.searchArea);
+          node["public_transport"="platform"]["name"="${escapedDestinationName}"](area.searchArea);
+          node["highway"="bus_stop"]["name"="${escapedDestinationName}"](area.searchArea);
         );
         out geom;
       `;
-      const response = await fetch('https://overpass-api.de/api/interpreter', {
-        method: 'POST',
-        body: query,
-      });
-
-      if (!response.ok) {
-        throw new Error(`Fetch failed: ${response.statusText}`);
-      }
-
-      return await response.json();
+      return await fetchOverpassJson(query);
     } catch (err) {
       console.warn('Overpass fetch error:', err);
-      Alert.alert('Error fetching routes', getErrorMessage(err));
       throw new Error('Could not load route data from Overpass API.');
     }
   };
