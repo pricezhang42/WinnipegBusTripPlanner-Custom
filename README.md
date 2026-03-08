@@ -1,4 +1,9 @@
 **Winnipeg Bus Trip Planner** is a cross-platform transit app designed to help commuters in Winnipeg easily plan, visualize, and navigate their bus routes. Built using React Native, this mobile app integrates with the Winnipeg Transit API and OpenStreetMap Overpass API to deliver real-time, interactive route planning with enhanced stop information and map visualizations.
+
+- Android version is availiable on Google Play -> Search **Winnipeg Bus Trip Planner** or go to:  https://play.google.com/store/apps/details?id=com.anonymous.BusTripPlanner&pcampaignid=web_share
+
+<img src="images/googleplay.png" width="500" height="240" />
+
 ### Key Features
 🔍 Smart Trip Planning
 - Input origin, destination, date, time, and travel mode to generate multiple route options.
