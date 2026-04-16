@@ -12,6 +12,8 @@ import { useRoute } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import { playSoundAsync } from 'expo-audio';
+import axios from 'axios';
+import { apiUrl } from '@/constants/Backend';
 
 const colorPalette = ['blue', 'black', 'green'];
 
@@ -27,20 +29,9 @@ type RouteData = {
 };
 
 interface Ride {
-  bus: string;
+  bus: string | number;
   origin: Coordinate & { name: string };
   destination: Coordinate & { name: string };
-}
-
-interface Segment {
-  type: string;
-  route?: { key: string };
-  from: any;
-  to: any;
-}
-
-interface Route {
-  segments: Segment[];
 }
 
 const DEFAULT_LOCATION: Coordinate = {
@@ -48,10 +39,7 @@ const DEFAULT_LOCATION: Coordinate = {
   longitude: -97.1384,
 };
 
-const OVERPASS_ENDPOINTS = [
-  'https://overpass-api.de/api/interpreter',
-  'https://overpass.kumi.systems/api/interpreter',
-];
+const ROUTE_SHAPE_TIMEOUT_MS = 10000;
 
 export default function MapScreen() {
   const mapRef = useRef<MapView>(null);
@@ -69,46 +57,27 @@ export default function MapScreen() {
   const squareDistanceOfTwoPoints = (a: Coordinate, b: Coordinate): number =>
     (a.latitude - b.latitude) ** 2 + (a.longitude - b.longitude) ** 2;
 
-  const getErrorMessage = (err: any) => {
-    if (typeof err === 'string') return err;
-    if (err?.message) return err.message;
-    if (typeof err === 'object') return JSON.stringify(err);
-    return 'Unknown error';
-  };
-
-  const escapeOverpassString = (value: string) =>
-    value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-
-  const fetchOverpassJson = async (query: string): Promise<any> => {
-    let lastError: unknown = null;
-
-    for (const endpoint of OVERPASS_ENDPOINTS) {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 20000);
-
-      try {
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain; charset=UTF-8' },
-          body: query,
-          signal: controller.signal,
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status} ${response.statusText}`);
-        }
-
-        return await response.json();
-      } catch (err) {
-        lastError = err;
-      } finally {
-        clearTimeout(timeoutId);
-      }
+  const fetchRouteShape = async (ride: Ride): Promise<Coordinate[] | null> => {
+    if (ride.bus == null || !ride.origin || !ride.destination) return null;
+    try {
+      const response = await axios.get(apiUrl('/api/route-shape'), {
+        params: {
+          route: String(ride.bus),
+          from: `${ride.origin.latitude},${ride.origin.longitude}`,
+          to: `${ride.destination.latitude},${ride.destination.longitude}`,
+        },
+        timeout: ROUTE_SHAPE_TIMEOUT_MS,
+      });
+      const points = response.data?.points;
+      if (!Array.isArray(points) || points.length < 2) return null;
+      return points.map(([lat, lng]: [number, number]) => ({
+        latitude: lat,
+        longitude: lng,
+      }));
+    } catch (err) {
+      console.warn('Route shape fetch failed:', err instanceof Error ? err.message : err);
+      return null;
     }
-
-    throw new Error(
-      `Overpass request failed on all endpoints: ${getErrorMessage(lastError)}`
-    );
   };
 
   const updateUserLocation = async () => {
@@ -164,169 +133,30 @@ export default function MapScreen() {
     setRouteData([]);
 
     try {
-      const routeDataList: RouteData[] = [];
-
-      for (const ride of rides) {
-        try {
-          const data = await fetchRouteAndNodes(ride);
-          const { originNode, destinationNode } = extractNodes(data, ride);
-
-          if (!originNode || !destinationNode) {
-            routeDataList.push({
-              origin: ride.origin,
-              destination: ride.destination,
-              points: [ride.origin, ride.destination],
-            });
-            continue;
+      const results = await Promise.all(
+        rides.map(async (ride): Promise<RouteData> => {
+          const shape = await fetchRouteShape(ride);
+          if (shape) {
+            return {
+              origin: { latitude: ride.origin.latitude, longitude: ride.origin.longitude },
+              destination: { latitude: ride.destination.latitude, longitude: ride.destination.longitude },
+              points: shape,
+            };
           }
-
-          const relation = findRelationWithNodes(data, originNode.id, destinationNode.id);
-          const nodes = relation ? extractAllNodes(relation) : [];
-
-          routeDataList.push({
-            origin: originNode.coordinates,
-            destination: destinationNode.coordinates,
-            points: relation
-              ? extractCoordinatesBetweenStops(
-                  extractWayCoordinates(relation, nodes),
-                  originNode.coordinates,
-                  destinationNode.coordinates
-                )
-              : [originNode.coordinates, destinationNode.coordinates],
-          });
-        } catch (subErr) {
-          console.warn('Failed to process one ride segment:', subErr);
-          routeDataList.push({
+          return {
             origin: ride.origin,
             destination: ride.destination,
             points: [ride.origin, ride.destination],
-          });
-        }
-      }
-
-      setRouteData(routeDataList);
+          };
+        })
+      );
+      setRouteData(results);
     } catch (err) {
-      console.error('Global route load error:', err);
+      console.error('Route shape load error:', err);
       Alert.alert('Error', 'Failed to load one or more routes.');
       setError('Failed to load route data');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const extractCoordinatesBetweenStops = (coordinates: Coordinate[], origin: Coordinate, destination: Coordinate): Coordinate[] => {
-    let startIndex = 0;
-    let endIndex = 0;
-    let closestDistanceStart = Infinity;
-    let closestDistanceEnd = Infinity;
-
-    for (let i = 0; i < coordinates.length; i++) {
-      const disStart = squareDistanceOfTwoPoints(coordinates[i], origin);
-      const disEnd = squareDistanceOfTwoPoints(coordinates[i], destination);
-
-      if (disStart < closestDistanceStart) {
-        closestDistanceStart = disStart;
-        startIndex = i;
-      }
-      if (disEnd < closestDistanceEnd) {
-        closestDistanceEnd = disEnd;
-        endIndex = i;
-      }
-    }
-
-    return coordinates.slice(startIndex, endIndex + 1);
-  };
-
-  const extractWayCoordinates = (relation: any, nodes: Coordinate[]): Coordinate[] => {
-    const coordinates: Coordinate[] = [];
-    const ways = relation.members.filter((m: any) => m.type === 'way' && m.geometry);
-
-    ways.forEach((way: any, index: number) => {
-      let startNodeOfWay: Coordinate = index === 0 ? nodes[0] : coordinates[coordinates.length - 1];
-
-      const coords = way.geometry.map((pt: any) => ({
-        latitude: pt.lat,
-        longitude: pt.lon,
-      }));
-
-      const disStart = squareDistanceOfTwoPoints(coords[0], startNodeOfWay);
-      const disEnd = squareDistanceOfTwoPoints(coords[coords.length - 1], startNodeOfWay);
-
-      if (disStart > disEnd) coords.reverse();
-
-      coords.forEach((pt: Coordinate) => {
-        if (
-          coordinates.length === 0 ||
-          pt.latitude !== coordinates[coordinates.length - 1].latitude ||
-          pt.longitude !== coordinates[coordinates.length - 1].longitude
-        ) {
-          coordinates.push(pt);
-        }
-      });
-    });
-
-    return coordinates;
-  };
-
-  const extractAllNodes = (relation: any): Coordinate[] => {
-    return relation.members
-      .filter((m: any) => m.type === 'node' && m.lat && m.lon)
-      .map((node: any) => ({
-        latitude: node.lat,
-        longitude: node.lon,
-      }));
-  };
-
-  const extractNodes = (data: any, ride: Ride) => {
-    let originNode = null;
-    let destinationNode = null;
-
-    data.elements.forEach((element: any) => {
-      if (element.type === 'node') {
-        const coordinates = {
-          latitude: element.lat,
-          longitude: element.lon,
-        };
-        if (element.tags?.name === ride.origin.name) originNode = { id: element.id, coordinates };
-        if (element.tags?.name === ride.destination.name) destinationNode = { id: element.id, coordinates };
-      }
-    });
-
-    return { originNode, destinationNode };
-  };
-
-  const findRelationWithNodes = (data: any, originNodeId: number, destinationNodeId: number): any => {
-    return data.elements.find((element: any) => {
-      if (element.type !== 'relation') return false;
-      const members = element.members;
-      const originIndex = members.findIndex((m: any) => m.ref === originNodeId);
-      const destinationIndex = members.findIndex((m: any) => m.ref === destinationNodeId);
-      return originIndex !== -1 && destinationIndex !== -1 && originIndex < destinationIndex;
-    });
-  };
-
-  const fetchRouteAndNodes = async (ride: Ride): Promise<any> => {
-    try {
-      const escapedBus = escapeOverpassString(ride.bus);
-      const escapedOriginName = escapeOverpassString(ride.origin.name);
-      const escapedDestinationName = escapeOverpassString(ride.destination.name);
-
-      const query = `
-        [out:json][timeout:25];
-        area[name="Winnipeg"]->.searchArea;
-        (
-          relation["type"="route"]["route"="bus"]["ref"="${escapedBus}"](area.searchArea);
-          node["public_transport"="platform"]["name"="${escapedOriginName}"](area.searchArea);
-          node["highway"="bus_stop"]["name"="${escapedOriginName}"](area.searchArea);
-          node["public_transport"="platform"]["name"="${escapedDestinationName}"](area.searchArea);
-          node["highway"="bus_stop"]["name"="${escapedDestinationName}"](area.searchArea);
-        );
-        out geom;
-      `;
-      return await fetchOverpassJson(query);
-    } catch (err) {
-      console.warn('Overpass fetch error:', err);
-      throw new Error('Could not load route data from Overpass API.');
     }
   };
 
@@ -348,7 +178,6 @@ export default function MapScreen() {
   useEffect(() => {
     const route = rawRoute;
     if (!route || !route.segments) return;
-    // console.log(route);
 
     ridesRef.current = [];
     const rides = ridesRef.current;
@@ -366,7 +195,7 @@ export default function MapScreen() {
         const prevSeg = route.segments[index - 1];
         const fromGeo = getGeographic(prevSeg?.to);
 
-        if (segment.route?.key && toGeo && fromGeo && prevSeg?.to?.stop?.name && nextSeg?.from?.stop?.name) {
+        if (segment.route?.key != null && toGeo && fromGeo && prevSeg?.to?.stop?.name && nextSeg?.from?.stop?.name) {
           rides.push({
             bus: segment.route.key,
             origin: {
@@ -394,20 +223,18 @@ export default function MapScreen() {
   useEffect(() => {
     const rides = ridesRef.current;
     if (!enableNapAlarm || !rawRoute || rides.length === 0) return;
-  
+
     (async () => {
       for (const ride of rides) {
         const stopName = ride.destination.name;
-        console.log(alertedStops);
         if (alertedStops.has(stopName)) continue;
-  
+
         const stopLocation: Coordinate = {
           latitude: ride.destination.latitude,
           longitude: ride.destination.longitude,
         };
-  
+
         const distanceSq = squareDistanceOfTwoPoints(userLocation, stopLocation);
-        console.log(distanceSq);
         if (distanceSq < 0.00001) {
           try {
             await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -415,7 +242,7 @@ export default function MapScreen() {
           } catch (e) {
             console.warn('Alarm error', e);
           }
-  
+
           Alert.alert('Wake up!', `You're near: ${stopName}`);
           setAlertedStops(prev => new Set(prev).add(stopName));
           break;
@@ -423,7 +250,7 @@ export default function MapScreen() {
       }
     })();
   }, [userLocation]);
-  
+
   return (
     <View style={styles.container}>
       <MapView

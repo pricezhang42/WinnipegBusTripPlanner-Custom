@@ -63,7 +63,7 @@ export default function MainScreen() {
     const time = formatTime(dateObj);
 
     setLoading(true);
-    const result = await routeRetrieve.getPlans(
+    const { plans: result, shelters: shelterMap } = await routeRetrieve.getPlans(
       origin.geometry.coordinates,
       destination.geometry.coordinates,
       date,
@@ -71,32 +71,25 @@ export default function MainScreen() {
       travelMode
     );
 
-    const shelterMap = {};
-    for (const plan of result || []) {
+    for (const plan of result) {
       let totalTimeSheltered = 0;
       for (const segment of plan.segments || []) {
         const stopKey = segment.to?.stop?.key;
-        if (stopKey && !shelterMap[stopKey]) {
-          try {
-            const shelter = await routeRetrieve.fetchStopShelter(stopKey);
-            shelterMap[stopKey] = shelter;
-            if (
-              (segment.type === 'transfer' || segment.type === 'walk') &&
-              shelter !== 'Unsheltered' &&
-              segment.times.durations.waiting
-            ) {
-              totalTimeSheltered += segment.times.durations.waiting;
-            }
-          } catch (e) {
-            console.warn('Failed to fetch shelter for stop', stopKey, e);
-          }
+        const shelter = stopKey != null ? shelterMap[String(stopKey)] : undefined;
+        if (
+          shelter &&
+          shelter !== 'Unsheltered' &&
+          (segment.type === 'transfer' || segment.type === 'walk') &&
+          segment.times?.durations?.waiting
+        ) {
+          totalTimeSheltered += segment.times.durations.waiting;
         }
       }
       plan['totalTimeSheltered'] = totalTimeSheltered;
     }
 
     setShelters(shelterMap);
-    setPlans(result || []);
+    setPlans(result);
     setLoading(false);
     setSelectedIndex(null);
   };

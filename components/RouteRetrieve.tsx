@@ -1,89 +1,46 @@
 import axios from 'axios';
 import { Alert } from 'react-native';
+import { apiUrl } from '@/constants/Backend';
+
+type ShelterType = 'Heated Shelter' | 'Unheated Shelter' | 'Unsheltered';
+
+export interface PlansResponse {
+  plans: any[];
+  shelters: Record<string, ShelterType>;
+}
 
 class RouteRetrieve {
-  private autocompleteAPI = 'https://winnipegtransit.com/api/v2/navigo/autocomplete';
-  private tripPlannerAPI = 'https://api.winnipegtransit.com/v3/trip-planner.json';
-  private stopAPI = 'https://api.winnipegtransit.com/v3/stops/';
-  private apiKey = 'REDACTED_WT_API_KEY';
-
-  private TIMEOUT_MS = 10000; // 10 seconds timeout
+  private TIMEOUT_MS = 15000;
 
   public async getPlans(
-    originCoor: string,
-    destinationCoor: string,
+    originCoor: [number, number] | number[],
+    destinationCoor: [number, number] | number[],
     date?: string,
     time?: string,
     travelMode?: string
-  ): Promise<object> {
-    return await this.getTripPlans(originCoor, destinationCoor, date, time, travelMode);
-  }
+  ): Promise<PlansResponse> {
+    const origin = `geo/${originCoor[1]},${originCoor[0]}`;
+    const destination = `geo/${destinationCoor[1]},${destinationCoor[0]}`;
 
-  private sendRequest = (url: string, config: object) => {
-    return axios.get(url, {
-      timeout: this.TIMEOUT_MS,
-      ...config,
-    });
-  };
-
-  private getTripPlans = async (
-    originCoor: string,
-    destinationCoor: string,
-    date?: string,
-    time?: string,
-    travelMode?: string
-  ) => {
-    const originCoorFormatted = `geo/${originCoor[1]},${originCoor[0]}`;
-    const destinationCoorFormatted = `geo/${destinationCoor[1]},${destinationCoor[0]}`;
-
-    return this.sendRequest(this.tripPlannerAPI, {
-      params: {
-        'api-key': this.apiKey,
-        origin: originCoorFormatted,
-        destination: destinationCoorFormatted,
-        date,
-        time,
-        mode: travelMode,
-      },
-    })
-      .then((response) => {
-        return response.data.plans;
-      })
-      .catch((error) => {
-        let errorMessage = error?.response?.data || error.message;
-        if (errorMessage === 'Coordinates not in zone 14U') {
-          errorMessage = 'Origin or destination not in Winnipeg';
-        } else if (error.code === 'ECONNABORTED') {
-          errorMessage = 'Request timed out. Please try again.';
-        }
-        Alert.alert('Error fetching trip plans', errorMessage);
+    try {
+      const response = await axios.get(apiUrl('/api/plans'), {
+        params: { origin, destination, date, time, mode: travelMode },
+        timeout: this.TIMEOUT_MS,
       });
-  };
-
-  private getStopFeatures = async (stopKey: string) => {
-    return this.sendRequest(`${this.stopAPI}${stopKey}/features.json`, {
-      params: { 'api-key': this.apiKey },
-    })
-      .then((response) => {
-        return response.data['stop-features'];
-      })
-      .catch((error) => {
-        let errorMessage = error?.response?.data || error.message;
-        if (error.code === 'ECONNABORTED') {
-          errorMessage = 'Request timed out. Please try again.';
-        }
-        console.warn('Error fetching stop features', errorMessage);
-      });
-  };
-
-  public fetchStopShelter = async (stopKey: string) => {
-    const features = await this.getStopFeatures(stopKey);
-    for (const feature of features || []) {
-      if (feature.name === 'Heated Shelter') return 'Heated Shelter';
-      if (feature.name === 'Unheated Shelter') return 'Unheated Shelter';
+      return {
+        plans: response.data?.plans ?? [],
+        shelters: response.data?.shelters ?? {},
+      };
+    } catch (error: any) {
+      const backendMessage = error?.response?.data?.message;
+      const message =
+        backendMessage ||
+        (error?.code === 'ECONNABORTED' ? 'Request timed out. Please try again.' : error?.message) ||
+        'Unknown error';
+      Alert.alert('Error fetching trip plans', message);
+      return { plans: [], shelters: {} };
     }
-    return 'Unsheltered';
-  };
+  }
 }
 
 export default RouteRetrieve;

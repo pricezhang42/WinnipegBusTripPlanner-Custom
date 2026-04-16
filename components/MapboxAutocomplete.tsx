@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { View, TextInput, FlatList, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import axios from 'axios';
-
-const MAPBOX_TOKEN = 'REDACTED_MAPBOX_TOKEN';;
+import { apiUrl } from '@/constants/Backend';
 
 const MapboxAutocomplete = ({ placeholder, onSelect }) => {
   const [query, setQuery] = useState('');
@@ -16,19 +15,11 @@ const MapboxAutocomplete = ({ placeholder, onSelect }) => {
     }
 
     try {
-      const response = await axios.get(
-        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(text)}.json`,
-        {
-          params: {
-            access_token: MAPBOX_TOKEN,
-            autocomplete: true,
-            country: 'ca',
-            proximity: '-97.1384,49.8951',
-            limit: 5,
-          },
-        }
-      );
-      setResults(response.data.features);
+      const response = await axios.get(apiUrl('/api/geocode'), {
+        params: { q: text },
+        timeout: 8000,
+      });
+      setResults(response.data?.features ?? []);
     } catch (error) {
       Alert.alert('Error fetching suggestions', getErrorMessage(error));
     }

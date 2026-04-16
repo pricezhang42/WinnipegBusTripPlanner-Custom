@@ -1,4 +1,4 @@
-**Winnipeg Bus Trip Planner** is a cross-platform transit app designed to help commuters in Winnipeg easily plan, visualize, and navigate their bus routes. Built using React Native, this mobile app integrates with the Winnipeg Transit API and OpenStreetMap Overpass API to deliver real-time, interactive route planning with enhanced stop information and map visualizations.
+**Winnipeg Bus Trip Planner** is a cross-platform transit app designed to help commuters in Winnipeg easily plan, visualize, and navigate their bus routes. Built using React Native, this mobile app talks to a small companion backend ([BusTripPlanner-backend](../BusTripPlanner-backend)) that proxies the Winnipeg Transit API and Mapbox geocoding and serves bus-route polylines from the Winnipeg Transit GTFS feed.
 
 - Android version is availiable on Google Play -> Search **Winnipeg Bus Trip Planner** or go to:  https://play.google.com/store/apps/details?id=com.anonymous.BusTripPlanner&pcampaignid=web_share
 
@@ -8,14 +8,14 @@
 🔍 Smart Trip Planning
 - Input origin, destination, date, time, and travel mode to generate multiple route options.
 
-- Automatically fetches and displays detailed trip plans using Winnipeg Transit’s official trip-planner API.
+- Automatically fetches and displays detailed trip plans using Winnipeg Transit’s official trip-planner API (via the backend).
 
-- Provide total **waiting time outside** and **sheltered time** for each trip to improve winter travel exprience. 
+- Provide total **waiting time outside** and **sheltered time** for each trip to improve winter travel exprience.
 
 🗺️ Interactive Route Maps
 - View the entire bus ride on a map, including bus lines, ride segments, and walk transfers.
 
-- Routes are drawn using Polylines over OpenStreetMap tiles for high-accuracy visuals.
+- Route polylines come from the Winnipeg Transit **GTFS feed** (`shapes.txt`), sliced to the exact segment between your boarding and alighting stops. OpenStreetMap tiles underlay the map for high-accuracy visuals.
 
 Each ride is highlighted with different colors for clarity.
 
@@ -34,7 +34,15 @@ Each ride is highlighted with different colors for clarity.
 
 Web prototype version: https://github.com/pricezhang42/Commute-Compass-Vercel
 
+### Architecture
+
+- **App (this repo)** — Expo / React Native client. No upstream API keys are bundled with the app; all third-party calls are proxied by the backend.
+- **Backend ([BusTripPlanner-backend](../BusTripPlanner-backend))** — Node + Hono service that holds the Mapbox and Winnipeg Transit credentials, batches the trip-planner + shelter-feature calls, and serves GTFS-based polylines.
+
+Point the client at a backend by setting `EXPO_PUBLIC_BACKEND_URL` at build time, or edit the default in [constants/Backend.ts](constants/Backend.ts). Defaults target `http://10.0.2.2:8787` on Android emulators and `http://localhost:8787` elsewhere.
+
+The only credential still on the client is the **Google Maps Android API key** in [app.json](app.json), used by the native Google Maps SDK. Restrict it in the Google Cloud Console to the app's package name (`com.anonymous.BusTripPlanner`) + release signing SHA-1, and limit it to the **Maps SDK for Android** API.
+
 <img src="images/index.png" width="200" height="400" />
 <img src="images/routes.png" width="200" height="400" />
 <img src="images/map.png" width="200" height="400" />
-
