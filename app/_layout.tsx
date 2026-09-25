@@ -7,6 +7,7 @@ import { useEffect } from 'react';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
+import { AuthProvider, useAuth } from '@/providers/AuthProvider';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -42,17 +43,22 @@ export default function RootLayout() {
     return null;
   }
 
-  return <RootLayoutNav />;
+  return <AuthProvider><RootLayoutNav /></AuthProvider>;
 }
 
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
+  const { session, loading } = useAuth();
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="about" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="auth/callback" options={{ title: 'Confirm account' }} />
+        <Stack.Protected guard={loading || !!session}>
+          <Stack.Screen name="auth/reset-password" options={{ title: 'Reset password' }} />
+        </Stack.Protected>
       </Stack>
     </ThemeProvider>
   );

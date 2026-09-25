@@ -46,3 +46,49 @@ The only credential still on the client is the **Google Maps Android API key** i
 <img src="images/index.png" width="200" height="400" />
 <img src="images/routes.png" width="200" height="400" />
 <img src="images/map.png" width="200" height="400" />
+
+### Accounts (Supabase)
+
+Search and Map remain available to guests. The Account tab supports email/password
+signup, sign-in, sign-out, email confirmation, and password recovery.
+
+1. Create a Supabase project. In Authentication → Providers, enable Email and
+   email confirmation. Set the minimum password length to at least 8.
+2. Copy `.env.example` to `.env.local`. Set `EXPO_PUBLIC_SUPABASE_URL` and
+   `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` to the project URL and publishable key
+   (a legacy anon key also works). Never put a secret/service-role key in the app.
+3. In Authentication → URL Configuration, allow both exact redirects:
+   - `bustripplanner://auth/callback`
+   - `bustripplanner://auth/callback?recovery=true`
+   For web development also allow the corresponding URLs at your actual web
+   origin, for example `http://localhost:8081/auth/callback` and the same URL
+   with `?recovery=true`.
+4. Keep the default confirmation/recovery email templates using `{{ .ConfirmationURL }}`.
+   Configure a production SMTP provider before opening signup to real users;
+   Supabase's default mail service restricts recipients and sending volume.
+5. Run `npm ci` and `npm run android`. SecureStore is a new native dependency,
+   so rebuild an existing development client once. After environment changes,
+   restart Metro with `npx expo start --dev-client --clear`.
+
+Email links use PKCE: open them on the same device/browser that requested them.
+On an emulator, open the email link inside the emulator browser. An expired,
+reused, or cross-device link displays a recoverable error on the callback screen.
+Without Supabase configuration, Account displays an unavailable message while
+trip planning continues to work. Native sessions use chunked Expo SecureStore;
+web sessions use browser localStorage. Passwords are never stored by the app.
+
+Authentication does not make the transit backend private. Before adding saved
+trips or other user data, enforce verified access tokens and per-user authorization
+on the backend (and RLS for any client-accessible Supabase tables).
+
+Manual verification with a configured project:
+- As a guest, open Search and Map, including with Supabase configuration absent.
+- Create an account, open its confirmation email in the same device, and sign in.
+- Check invalid credentials, mismatched passwords, and network failure messages.
+- Restart the app and confirm the account session persists; sign out and restart.
+- Request password recovery, open the email, set a new password, and sign in again.
+- Open an expired/reused link and visit `/auth/reset-password` while signed out.
+- Verify dark mode, keyboard layout, and Search/Map navigation after login/logout.
+
+References: [Supabase React Native auth](https://supabase.com/docs/guides/auth/quickstarts/react-native)
+and [mobile email links](https://supabase.com/docs/guides/auth/native-mobile-deep-linking).

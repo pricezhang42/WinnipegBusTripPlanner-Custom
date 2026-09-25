@@ -58,6 +58,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <TabBarIcon icon={FontAwesome} name="map-o" color={color} />,
         }}
       />
+      <Tabs.Screen name="account" options={{ title: 'Account', tabBarIcon: ({ color }) => <TabBarIcon icon={FontAwesome} name="user-circle-o" color={color} /> }} />
     </Tabs>
   );
 }
