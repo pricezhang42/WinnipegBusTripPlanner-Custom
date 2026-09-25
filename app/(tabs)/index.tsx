@@ -21,6 +21,7 @@ import { useNavigation } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
 import RouteRetrieve from '@/components/RouteRetrieve';
+import { TripCard } from '@/components/TripCard';
 import MapboxAutocomplete from '@/components/MapboxAutocomplete';
 
 const MODES = ['depart-before', 'depart-after', 'arrive-before', 'arrive-after'];
@@ -40,7 +41,7 @@ export default function MainScreen() {
   const [plans, setPlans] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [shelters, setShelters] = useState<Record<string, string>>({});
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [expandedTrips, setExpandedTrips] = useState<Set<number>>(new Set());
 
   const { session } = useAuth();
   const saved = useSavedTrips();
@@ -68,7 +69,7 @@ export default function MainScreen() {
   }
   function changeLocation(kind: 'origin' | 'destination', value: Location | null) {
     requestVersion.current++;
-    setLoading(false); setPlans([]); setPlannedTrip(null);
+    setLoading(false); setPlans([]); setPlannedTrip(null); setExpandedTrips(new Set());
     if (kind === 'origin') setOrigin(value); else setDestination(value);
   }
   const routeRetrieve = new RouteRetrieve();
@@ -133,7 +134,7 @@ export default function MainScreen() {
     setShelters(shelterMap);
     setPlans(result);
     setLoading(false);
-    setSelectedIndex(null);
+    setExpandedTrips(new Set());
     if (result.length) {
       setPlannedTrip(searchedTrip);
       try { await saved.recordTrip(searchedTrip); }
@@ -141,62 +142,11 @@ export default function MainScreen() {
     }
   };
 
-  const getShelterClass = (type: string) => {
-    return ({
-      'Heated Shelter': styles.shelterHeated,
-      'Unheated Shelter': styles.shelterUnheated,
-      'Unsheltered': styles.unsheltered,
-    } as Record<string, object>)[type] || {};
-  };
-
-  const renderSegment = (segment: any, index: number) => {
-    const startTime = segment.times?.start?.substring(11, 16);
-    const stopKey = segment.to?.stop?.key;
-    const shelter = stopKey ? shelters[stopKey] : null;
-
-    if (segment.type === 'ride') {
-      return (
-        <Text key={index} style={styles.segment}>
-          ● <Text style={styles.bold}>Ride:</Text> ({startTime}) {segment.times.durations.riding} min, Bus: {segment.route?.key}
-        </Text>
-      );
-    } else if (segment.type === 'walk') {
-      return (
-        <Text key={index} style={styles.segment}>
-          ● <Text style={styles.bold}>Walk:</Text> ({startTime}) {segment.times.durations.walking} min
-          {shelter && <Text style={getShelterClass(shelter)}> ({shelter})</Text>}
-        </Text>
-      );
-    } else if (segment.type === 'transfer') {
-      return (
-        <Text key={index} style={styles.segment}>
-          ● <Text style={styles.bold}>Transfer:</Text> ({startTime}) Walking: {segment.times.durations.walking} min, Waiting: {segment.times.durations.waiting} min
-          {shelter && <Text style={getShelterClass(shelter)}> ({shelter})</Text>}
-        </Text>
-      );
-    }
-    return null;
-  };
-
   const renderCard = ({ item, index }: { item: any; index: number }) => (
-    <Pressable
-      key={index}
-      style={({ pressed }) => [
-        styles.card,
-        pressed && styles.cardPressed,
-        selectedIndex === index && styles.cardSelected,
-      ]}
-      onPress={() => {
-        setSelectedIndex(index);
-        (navigation as any).navigate('map', { route: item, enableNapAlarm });
-      }}
-    >
-      <Text style={styles.cardTitle}>Total Time: {item.times.durations.total} min</Text>
-      <Text style={styles.cardTitle}>
-        Time Outside: {item.times.durations.waiting + item.times.durations.walking} min ({item.totalTimeSheltered} min sheltered)
-      </Text>
-      {item.segments.map((seg: any, i: number) => renderSegment(seg, i))}
-    </Pressable>
+    <TripCard plan={item} number={index + 1} expanded={expandedTrips.has(index)}
+      originName={plannedTrip?.origin.place_name} destinationName={plannedTrip?.destination.place_name} shelters={shelters}
+      onToggle={() => setExpandedTrips(previous => { const next = new Set(previous); if (next.has(index)) next.delete(index); else next.add(index); return next; })}
+      onViewMap={() => (navigation as any).navigate('map', { route: item, enableNapAlarm })} />
   );
 
   return (
@@ -204,6 +154,7 @@ export default function MainScreen() {
     <FlatList
       keyboardShouldPersistTaps="handled"
       data={plans}
+      extraData={expandedTrips}
       keyExtractor={(_, index) => index.toString()}
       renderItem={renderCard}
       contentContainerStyle={styles.container}
@@ -375,40 +326,5 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: 'bold',
     fontSize: 16,
-  },
-  card: {
-    backgroundColor: '#f0f0f0',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 16,
-  },
-  cardPressed: {
-    backgroundColor: '#e0e0e0',
-  },
-  cardSelected: {
-    borderWidth: 2,
-    borderColor: '#007AFF',
-    backgroundColor: '#d0e8ff',
-  },
-  cardTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginBottom: 3,
-  },
-  segment: {
-    fontSize: 13,
-    marginTop: 2,
-  },
-  bold: {
-    fontWeight: 'bold',
-  },
-  shelterHeated: {
-    color: 'green',
-  },
-  shelterUnheated: {
-    color: 'blue',
-  },
-  unsheltered: {
-    color: 'red',
   },
 });

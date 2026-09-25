@@ -120,3 +120,18 @@ modify the other's rows. Plan 11 successful trips and confirm history contains
 10 records, including after restarting the app. Also check favoriting a location
 from either input, typed-query behavior, favorite removal, offline errors, and
 restoring both endpoints from each trip popup.
+
+### Expanded trip itineraries
+
+Use the chevron on the right of a search-result card to expand its itinerary.
+Several cards can stay open for comparison. View Map is a separate action;
+expanding never navigates away. New search results reset expanded cards.
+
+The timeline shows planned Winnipeg times, stop names/numbers, route and variant
+names when supplied, ride durations, transfer walking/waiting, and shelter details.
+Walking uses dotted connectors and rides use solid connectors. Dates appear when
+an itinerary crosses midnight. Missing times or stop details are labeled rather
+than guessed. Ride endpoints can come from immediately adjacent walk/transfer
+segments, as in the Transit API. Route badge colors identify legs and are not
+claimed to be official route colors. Reliability estimates are not included yet;
+RideDetails provides the component where they can later be displayed.
