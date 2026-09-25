@@ -8,8 +8,15 @@ import {
   Platform,
   TouchableOpacity,
   FlatList,
+  Keyboard,
 } from 'react-native';
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { router } from 'expo-router';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { useAuth } from '@/providers/AuthProvider';
+import { useSavedTrips } from '@/hooks/useSavedTrips';
+import { Location, Trip, tripKey } from '@/lib/savedTrips';
+import { TripListModal } from '@/components/TripListModal';
 import { useNavigation } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
@@ -21,8 +28,8 @@ const MODES = ['depart-before', 'depart-after', 'arrive-before', 'arrive-after']
 export default function MainScreen() {
   const navigation = useNavigation();
 
-  const [origin, setOrigin] = useState(null);
-  const [destination, setDestination] = useState(null);
+  const [origin, setOrigin] = useState<Location | null>(null);
+  const [destination, setDestination] = useState<Location | null>(null);
   const [dateTime, setDateTime] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [pickerMode, setPickerMode] = useState<'date' | 'time'>('date');
@@ -30,11 +37,40 @@ export default function MainScreen() {
   const [useNow, setUseNow] = useState(true);
   const [enableNapAlarm, setEnableNapAlarm] = useState(false);
 
-  const [plans, setPlans] = useState([]);
+  const [plans, setPlans] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [shelters, setShelters] = useState({});
+  const [shelters, setShelters] = useState<Record<string, string>>({});
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 
+  const { session } = useAuth();
+  const saved = useSavedTrips();
+  const [activeInput, setActiveInput] = useState<'origin' | 'destination' | null>(null);
+  const [tripList, setTripList] = useState<'history' | 'favorites' | null>(null);
+  const [plannedTrip, setPlannedTrip] = useState<Trip | null>(null);
+  const requestVersion = useRef(0);
+  useEffect(() => { setTripList(null); }, [session?.user.id]);
+  useEffect(() => () => { requestVersion.current++; }, []);
+  function requireAccount() {
+    if (session) return true;
+    Alert.alert('Sign in to save your trips', 'Your favorite places and trips will be available on your account.', [
+      { text: 'Not now', style: 'cancel' }, { text: 'Sign in', onPress: () => router.push('/(tabs)/account') },
+    ]);
+    return false;
+  }
+  async function saveAction(action: () => Promise<void>) {
+    if (!requireAccount()) return;
+    try { await action(); } catch (error) { Alert.alert('Saved trips', error instanceof Error ? error.message : 'Please try again.'); }
+  }
+  function openTrips(kind: 'history' | 'favorites') {
+    setActiveInput(null); Keyboard.dismiss();
+    if (!requireAccount()) return;
+    setTripList(kind); saved.refresh();
+  }
+  function changeLocation(kind: 'origin' | 'destination', value: Location | null) {
+    requestVersion.current++;
+    setLoading(false); setPlans([]); setPlannedTrip(null);
+    if (kind === 'origin') setOrigin(value); else setDestination(value);
+  }
   const routeRetrieve = new RouteRetrieve();
 
   const showPicker = (type: 'date' | 'time') => {
@@ -51,7 +87,7 @@ export default function MainScreen() {
       Alert.alert('Please select both origin and destination');
       return;
     }
-    fetchPlans();
+    if (!loading) fetchPlans();
   };
 
   const fetchPlans = async () => {
@@ -62,6 +98,10 @@ export default function MainScreen() {
     const date = formatDate(dateObj);
     const time = formatTime(dateObj);
 
+    const version = ++requestVersion.current;
+    const searchedTrip = { origin, destination };
+    setActiveInput(null); Keyboard.dismiss();
+    setPlannedTrip(null);
     setLoading(true);
     const { plans: result, shelters: shelterMap } = await routeRetrieve.getPlans(
       origin.geometry.coordinates,
@@ -70,6 +110,8 @@ export default function MainScreen() {
       time,
       travelMode
     );
+
+    if (requestVersion.current !== version) return;
 
     for (const plan of result) {
       let totalTimeSheltered = 0;
@@ -92,17 +134,22 @@ export default function MainScreen() {
     setPlans(result);
     setLoading(false);
     setSelectedIndex(null);
+    if (result.length) {
+      setPlannedTrip(searchedTrip);
+      try { await saved.recordTrip(searchedTrip); }
+      catch (error) { Alert.alert('Trip history', error instanceof Error ? error.message : 'Could not save history.'); }
+    }
   };
 
-  const getShelterClass = (type) => {
-    return {
+  const getShelterClass = (type: string) => {
+    return ({
       'Heated Shelter': styles.shelterHeated,
       'Unheated Shelter': styles.shelterUnheated,
       'Unsheltered': styles.unsheltered,
-    }[type] || {};
+    } as Record<string, object>)[type] || {};
   };
 
-  const renderSegment = (segment, index) => {
+  const renderSegment = (segment: any, index: number) => {
     const startTime = segment.times?.start?.substring(11, 16);
     const stopKey = segment.to?.stop?.key;
     const shelter = stopKey ? shelters[stopKey] : null;
@@ -131,7 +178,7 @@ export default function MainScreen() {
     return null;
   };
 
-  const renderCard = ({ item, index }) => (
+  const renderCard = ({ item, index }: { item: any; index: number }) => (
     <Pressable
       key={index}
       style={({ pressed }) => [
@@ -141,27 +188,37 @@ export default function MainScreen() {
       ]}
       onPress={() => {
         setSelectedIndex(index);
-        navigation.navigate('map', { route: item, enableNapAlarm });
+        (navigation as any).navigate('map', { route: item, enableNapAlarm });
       }}
     >
       <Text style={styles.cardTitle}>Total Time: {item.times.durations.total} min</Text>
       <Text style={styles.cardTitle}>
         Time Outside: {item.times.durations.waiting + item.times.durations.walking} min ({item.totalTimeSheltered} min sheltered)
       </Text>
-      {item.segments.map((seg, i) => renderSegment(seg, i))}
+      {item.segments.map((seg: any, i: number) => renderSegment(seg, i))}
     </Pressable>
   );
 
   return (
+    <>
     <FlatList
+      keyboardShouldPersistTaps="handled"
       data={plans}
       keyExtractor={(_, index) => index.toString()}
       renderItem={renderCard}
       contentContainerStyle={styles.container}
       ListHeaderComponent={
         <>
-          <MapboxAutocomplete placeholder="Enter Origin" onSelect={setOrigin} style={styles.input} />
-          <MapboxAutocomplete placeholder="Enter Destination" onSelect={setDestination} style={styles.input} />
+          <MapboxAutocomplete placeholder="Enter Origin" value={origin} onSelect={value => changeLocation('origin', value)}
+            favorites={saved.locations} favoritesLoading={saved.loading} favoritesError={saved.error} busy={saved.busy}
+            onToggleFavorite={location => saveAction(() => saved.toggleLocation(location))}
+            active={activeInput === 'origin'} onFocus={() => { setActiveInput('origin'); saved.refresh(); }} onClose={() => setActiveInput(null)}
+            action={<Pressable accessibilityRole="button" accessibilityLabel="Trip history" style={styles.iconButton} onPress={() => openTrips('history')}><FontAwesome name="history" size={24} color="#333" /></Pressable>} />
+          <MapboxAutocomplete placeholder="Enter Destination" value={destination} onSelect={value => changeLocation('destination', value)}
+            favorites={saved.locations} favoritesLoading={saved.loading} favoritesError={saved.error} busy={saved.busy}
+            onToggleFavorite={location => saveAction(() => saved.toggleLocation(location))}
+            active={activeInput === 'destination'} onFocus={() => { setActiveInput('destination'); saved.refresh(); }} onClose={() => setActiveInput(null)}
+            action={<Pressable accessibilityRole="button" accessibilityLabel="Favorite trips" style={styles.iconButton} onPress={() => openTrips('favorites')}><FontAwesome name="heart" size={24} color="#cc2446" /></Pressable>} />
 
           <View style={styles.row}>
             <TouchableOpacity
@@ -213,7 +270,7 @@ export default function MainScreen() {
               </Picker>
             </View>
 
-            <TouchableOpacity style={styles.goButton} onPress={handleGo}>
+            <TouchableOpacity style={[styles.goButton, loading && { opacity: 0.5 }]} disabled={loading} onPress={handleGo}>
               <Text style={styles.goButtonText}>Go</Text>
             </TouchableOpacity>
           </View>
@@ -233,13 +290,26 @@ export default function MainScreen() {
           )}
 
           {loading && <Text>Loading route plans…</Text>}
+          {plannedTrip && <Pressable accessibilityRole="button"
+            disabled={saved.busy || saved.favorites.some(trip => tripKey(trip) === tripKey(plannedTrip))}
+            style={styles.saveButton} onPress={() => saveAction(() => saved.saveTrip(plannedTrip))}>
+            <FontAwesome name="heart" size={18} color="#cc2446" />
+            <Text style={{ color: '#a11936', fontWeight: '600' }}>{saved.favorites.some(trip => tripKey(trip) === tripKey(plannedTrip)) ? 'Saved to Favorites' : saved.busy ? 'Saving…' : 'Save Trip to Fav'}</Text>
+          </Pressable>}
         </>
       }
     />
+    <TripListModal kind={tripList} trips={tripList === 'history' ? saved.history : saved.favorites}
+      loading={saved.loading} error={saved.error} busy={saved.busy} onRetry={saved.refresh}
+      onClose={() => setTripList(null)} onRemove={trip => saveAction(() => saved.removeTrip(trip))}
+      onSelect={trip => { changeLocation('origin', { ...trip.origin }); changeLocation('destination', { ...trip.destination }); setTripList(null); setActiveInput(null); Keyboard.dismiss(); }} />
+    </>
   );
 }
 
 const styles = StyleSheet.create({
+  iconButton: { padding: 12, minWidth: 48, minHeight: 48 },
+  saveButton: { flexDirection: 'row', gap: 10, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: '#e5a6b3', borderRadius: 8, marginTop: 8 },
   container: {
     paddingTop: 20,
     paddingHorizontal: 20,

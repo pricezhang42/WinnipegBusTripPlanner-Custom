@@ -1,0 +1,33 @@
+import React from 'react';
+import { jest, test, expect } from '@jest/globals';
+import renderer, { act, ReactTestRenderer } from 'react-test-renderer';
+import { TextInput, Pressable } from 'react-native';
+import MapboxAutocomplete from '../MapboxAutocomplete';
+import { Location } from '../../lib/savedTrips';
+jest.mock('@expo/vector-icons/FontAwesome', () => 'Icon');
+jest.mock('axios', () => ({ get: jest.fn() }));
+const place: Location = { id: 'a', place_name: 'Home', geometry: { coordinates: [-97.1, 49.9] } };
+test('favorites disappear on first character, return on clear, and hearts do not select', async () => {
+  const select = jest.fn(); const toggle = jest.fn();
+  let tree!: ReactTestRenderer;
+  await act(async () => { tree = renderer.create(<MapboxAutocomplete placeholder="Origin" value={null} onSelect={select} favorites={[place]} onToggleFavorite={toggle} active onClose={() => {}} action={null} />); });
+  const heart = () => tree.root.findAllByType(Pressable).find(node => node.props.accessibilityLabel === 'Remove favorite Home');
+  expect(heart()).toBeDefined();
+  await act(async () => { heart()!.props.onPress(); });
+  expect(toggle).toHaveBeenCalledWith(place);
+  expect(select).not.toHaveBeenCalled();
+  await act(async () => { tree.root.findByType(TextInput).props.onChangeText('a'); });
+  expect(heart()).toBeUndefined();
+  expect(select).toHaveBeenCalledWith(null);
+  await act(async () => { tree.root.findByType(TextInput).props.onChangeText(''); });
+  expect(heart()).toBeDefined();
+  await act(async () => { tree.unmount(); });
+});
+test('restoring a trip updates the visible input text', async () => {
+  let tree!: ReactTestRenderer;
+  const props = { placeholder: 'Origin', onSelect: jest.fn(), favorites: [], onToggleFavorite: jest.fn(), active: false, onClose: jest.fn(), action: null };
+  await act(async () => { tree = renderer.create(<MapboxAutocomplete {...props} value={null} />); });
+  await act(async () => { tree.update(<MapboxAutocomplete {...props} value={place} />); });
+  expect(tree.root.findByType(TextInput).props.value).toBe('Home');
+  await act(async () => { tree.unmount(); });
+});
