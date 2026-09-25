@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet, useColorScheme, useWindowDimensions } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { durationSummary, endpointLabel, Itinerary, minutes, Segment, segmentEndpoints, timeLabel, Endpoint } from '@/lib/itinerary';
+import { outsideMinutes, durationSummary, endpointLabel, Itinerary, minutes, Segment, segmentEndpoints, timeLabel, Endpoint } from '@/lib/itinerary';
 
 type Palette = { background: string; text: string; muted: string; line: string; badge: string };
 const routeColors = ['#087d54', '#0964a0', '#8352a4', '#a9501b'];
@@ -38,7 +38,18 @@ export function TripCard({ plan, expanded, onToggle, onViewMap, originName, dest
   const timeWidth = compact ? 68 : 82;
   const segments = plan.segments ?? [];
   const rides = segments.filter(s => s.type === 'ride');
-  const transfers = segments.filter(s => s.type === 'transfer').length;
+  const outside = outsideMinutes(plan);
+  const outsideColors = dark ? { color: '#ffdc91', backgroundColor: '#463415', borderColor: '#a87924' }
+    : { color: '#754700', backgroundColor: '#fff1ce', borderColor: '#d9a43b' };
+  const shelterColors: Record<string, { color: string; backgroundColor: string }> = dark ? {
+    'Heated Shelter': { color: '#8fe5ad', backgroundColor: '#163d29' },
+    'Unheated Shelter': { color: '#ffc17a', backgroundColor: '#4b2d13' },
+    'Unsheltered': { color: '#ffa3a3', backgroundColor: '#4a2228' },
+  } : {
+    'Heated Shelter': { color: '#166534', backgroundColor: '#dcfce7' },
+    'Unheated Shelter': { color: '#9a4309', backgroundColor: '#ffedd5' },
+    'Unsheltered': { color: '#b91c1c', backgroundColor: '#fee2e2' },
+  };
   const base = plan.times?.start ?? segments[0]?.times?.start;
   return <View style={[styles.card, { backgroundColor: palette.background, borderColor: palette.line }]}>
     <View style={styles.header}>
@@ -52,8 +63,11 @@ export function TripCard({ plan, expanded, onToggle, onViewMap, originName, dest
       </Pressable>
     </View>
     <View style={styles.metrics}>
-      {([['bus', `${durationSummary(plan, 'riding')} riding`], ['road', `${durationSummary(plan, 'walking')} walking`], ['hourglass-o', `${durationSummary(plan, 'waiting')} waiting`], ['exchange', `${transfers} transfer${transfers === 1 ? '' : 's'}`]] as const).map(([icon, label]) => <Text key={icon} style={[styles.metric, { color: palette.muted }]}><FontAwesome name={icon} /> {label}</Text>)}
+      {([['bus', `${durationSummary(plan, 'riding')} riding`], ['road', `${durationSummary(plan, 'walking')} walking`], ['hourglass-o', `${durationSummary(plan, 'waiting')} waiting`]] as const).map(([icon, label]) => <Text key={icon} style={[styles.metric, { color: palette.muted }]}><FontAwesome name={icon} /> {label}</Text>)}
     </View>
+    <Text style={[styles.outside, outsideColors]} accessibilityLabel={outside == null ? 'Time outside unavailable' : `Time outside ${minutes(outside)}, walking plus waiting without shelter`}>
+      <FontAwesome name="sun-o" /> Time outside: {outside == null ? 'Unavailable' : minutes(outside)}
+    </Text>
     {typeof plan.totalTimeSheltered === 'number' && plan.totalTimeSheltered > 0 && <Text style={[styles.secondary, { color: palette.muted }]}>{minutes(plan.totalTimeSheltered)} waiting with shelter</Text>}
     {expanded && <View testID="trip-timeline" style={[styles.timeline, { borderColor: palette.line }]}>
       <Text style={[styles.timezone, { color: palette.muted }]}>Planned times · Winnipeg</Text>
@@ -76,7 +90,7 @@ export function TripCard({ plan, expanded, onToggle, onViewMap, originName, dest
               {segment.type === 'ride' ? <RideDetails segment={segment} index={rideIndex} palette={palette} /> : <>
                 <Text style={[styles.detail, { color: palette.text }]}>{segment.type === 'transfer' ? (segment.times?.durations?.walking != null ? 'Transfer walk' : 'Transfer') : segment.type === 'walk' ? 'Walk' : 'Travel'} · {minutes(segment.times?.durations?.walking ?? segment.times?.durations?.total)}</Text>
                 {!!waiting && waiting > 0 && <Text style={[styles.secondary, { color: palette.text }]}>Wait {minutes(waiting)} at {endpointLabel(endpoints.to, 'the boarding stop')}</Text>}
-                {!!shelter && <Text style={[styles.secondary, { color: palette.muted }]}>At next stop: {shelter}</Text>}
+                {!!shelter && <Text style={[styles.shelter, shelterColors[shelter] ?? { color: palette.muted, backgroundColor: palette.badge }]}>At next stop: {shelter === 'Unsheltered' ? 'No shelter' : shelter}</Text>}
               </>}
             </View>
           </View>
@@ -88,6 +102,8 @@ export function TripCard({ plan, expanded, onToggle, onViewMap, originName, dest
   </View>;
 }
 const styles = StyleSheet.create({
+  outside: { alignSelf: 'flex-start', marginTop: 12, paddingHorizontal: 12, paddingVertical: 9, borderRadius: 8, borderWidth: 1, fontSize: 16, lineHeight: 23, fontWeight: '700' },
+  shelter: { alignSelf: 'flex-start', marginTop: 8, paddingHorizontal: 9, paddingVertical: 6, borderRadius: 6, fontSize: 14, lineHeight: 21, fontWeight: '700' },
   card: { marginTop: 16, padding: 14, borderRadius: 14, borderWidth: 1 }, header: { flexDirection: 'row', alignItems: 'flex-start' }, summary: { flex: 1, minWidth: 0 }, badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginBottom: 10 },
   badge: { borderRadius: 7, paddingHorizontal: 11, paddingVertical: 9, alignSelf: 'flex-start' }, badgeText: { color: '#fff', fontWeight: '700', fontSize: 18 }, expand: { minWidth: 48, minHeight: 48, alignItems: 'center', justifyContent: 'center', marginRight: -6 },
   summaryTime: { fontSize: 17, fontWeight: '600', lineHeight: 25 }, secondary: { fontSize: 14, lineHeight: 21, marginTop: 4 }, metrics: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 12 }, metric: { fontSize: 13, lineHeight: 21 },

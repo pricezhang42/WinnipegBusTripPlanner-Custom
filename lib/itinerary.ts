@@ -43,3 +43,15 @@ export function durationSummary(plan: Itinerary, field: 'riding' | 'walking' | '
   const values = (plan.segments ?? []).map(segment => segment.times?.durations?.[field]).filter((v): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 0);
   return values.length ? minutes(values.reduce((a, b) => a + b, 0)) : '—';
 }
+
+// Sheltered waiting includes both heated and unheated shelters. Walking always
+// remains outside time, even when the walk ends at a sheltered stop.
+export function outsideMinutes(plan: Itinerary): number | undefined {
+  const walking = plan.times?.durations?.walking;
+  const waiting = plan.times?.durations?.waiting;
+  const sheltered = plan.totalTimeSheltered ?? 0;
+  if (typeof walking !== 'number' || !Number.isFinite(walking) || walking < 0 ||
+      typeof waiting !== 'number' || !Number.isFinite(waiting) || waiting < 0 ||
+      !Number.isFinite(sheltered) || sheltered < 0) return undefined;
+  return walking + Math.max(0, waiting - sheltered);
+}

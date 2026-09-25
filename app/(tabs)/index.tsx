@@ -120,8 +120,7 @@ export default function MainScreen() {
         const stopKey = segment.to?.stop?.key;
         const shelter = stopKey != null ? shelterMap[String(stopKey)] : undefined;
         if (
-          shelter &&
-          shelter !== 'Unsheltered' &&
+          (shelter === 'Heated Shelter' || shelter === 'Unheated Shelter') &&
           (segment.type === 'transfer' || segment.type === 'walk') &&
           segment.times?.durations?.waiting
         ) {

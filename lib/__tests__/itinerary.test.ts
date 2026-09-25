@@ -1,5 +1,5 @@
 import { test, expect } from '@jest/globals';
-import { localTime, timeLabel, segmentEndpoints, minutes, durationSummary } from '../itinerary';
+import { outsideMinutes, localTime, timeLabel, segmentEndpoints, minutes, durationSummary } from '../itinerary';
 test('Winnipeg wall-clock times are preserved and midnight dates are explicit', () => {
   expect(localTime('2026-09-25T23:55:00').time).toBe('11:55 pm');
   expect(timeLabel('2026-09-26T00:05:00', '2026-09-25T23:55:00')).toBe('12:05 am\n2026-09-26');
@@ -17,4 +17,13 @@ test('missing durations are not silently displayed as zero', () => {
   expect(minutes(-1)).toBe('Duration unavailable');
   expect(durationSummary({ segments: [] }, 'waiting')).toBe('—');
   expect(durationSummary({ segments: [{ times: { durations: { walking: 3 } } }, { times: { durations: { walking: 4 } } }] }, 'walking')).toBe('7 min');
+});
+
+test('outside time excludes sheltered waiting but always includes walking', () => {
+  const times = { durations: { walking: 13, waiting: 12 } };
+  expect(outsideMinutes({ times, totalTimeSheltered: 8 })).toBe(17);
+  expect(outsideMinutes({ times, totalTimeSheltered: 12 })).toBe(13);
+  expect(outsideMinutes({ times, totalTimeSheltered: 0 })).toBe(25);
+  expect(outsideMinutes({ times: { durations: { walking: 0, waiting: 0 } } })).toBe(0);
+  expect(outsideMinutes({ times: { durations: { walking: 13 } } })).toBeUndefined();
 });
