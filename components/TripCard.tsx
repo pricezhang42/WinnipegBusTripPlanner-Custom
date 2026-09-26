@@ -1,4 +1,5 @@
 import React from 'react';
+import { RideReliability } from './RideReliability';
 import { View, Text, Pressable, StyleSheet, useColorScheme, useWindowDimensions } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { outsideMinutes, durationSummary, endpointLabel, Itinerary, minutes, Segment, segmentEndpoints, timeLabel, Endpoint } from '@/lib/itinerary';
@@ -18,7 +19,7 @@ function StopRow({ endpoint, label, time, base, color, palette, timeWidth }: { e
     </View>
   </View>;
 }
-// Each ride owns its details so reliability can later be added here without changing navigation.
+// Historical evidence stays with the boarding it describes.
 export function RideDetails({ segment, index, palette }: { segment: Segment; index: number; palette: Palette }) {
   return <>
     <Text style={[styles.detail, { color: palette.text }]}><FontAwesome name="bus" /> Ride for {minutes(segment.times?.durations?.riding ?? segment.times?.durations?.total)}</Text>
@@ -26,6 +27,7 @@ export function RideDetails({ segment, index, palette }: { segment: Segment; ind
       {!!segment.route?.name && <Text style={[styles.routeName, { color: palette.text }]}>{segment.route.name}</Text>}
       {!!segment.variant?.name && <Text style={[styles.secondary, { color: palette.muted }]}>{segment.variant.name}</Text>}
     </View></View>
+    <RideReliability reliability={segment.reliability} color={palette.text} muted={palette.muted} border={palette.line} />
   </>;
 }
 export function TripCard({ plan, expanded, onToggle, onViewMap, originName, destinationName, shelters, number }: {

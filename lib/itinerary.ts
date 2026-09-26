@@ -1,6 +1,7 @@
+import type { RideReliability } from './reliability';
 export type Endpoint = { stop?: { key?: string | number; name?: string }; origin?: unknown; destination?: unknown };
 export type Times = { start?: string; end?: string; durations?: { total?: number; riding?: number; walking?: number; waiting?: number } };
-export type Segment = { type?: string; from?: Endpoint; to?: Endpoint; route?: { key?: string | number; name?: string }; variant?: { name?: string }; times?: Times };
+export type Segment = { reliability?: RideReliability; type?: string; from?: Endpoint; to?: Endpoint; route?: { key?: string | number; name?: string }; variant?: { name?: string }; times?: Times };
 export type Itinerary = { times?: Times; segments?: Segment[]; totalTimeSheltered?: number };
 export function minutes(value: unknown): string {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? `${Math.round(value * 10) / 10} min` : 'Duration unavailable';
