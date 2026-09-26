@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/providers/AuthProvider';
-import { isLocation, locationKey, tripKey, Location, Trip, SavedTrip } from '@/lib/savedTrips';
+import { isLocation, latestPerTrip, locationKey, tripKey, Location, Trip, SavedTrip } from '@/lib/savedTrips';
 
 type Lists = { locations: Location[]; favorites: SavedTrip[]; history: SavedTrip[] };
 const empty: Lists = { locations: [], favorites: [], history: [] };
@@ -29,7 +29,8 @@ export function useSavedTrips() {
       if (current.current === uid && generation.current === version) setState({ uid, lists: {
         locations: (locations.data ?? []).map(row => row.location).filter(isLocation),
         favorites: (favorites.data ?? []).filter(row => isLocation(row.origin) && isLocation(row.destination)),
-        history: (history.data ?? []).filter(row => isLocation(row.origin) && isLocation(row.destination)),
+        // The database keeps one row per trip; this also hides duplicates saved before that migration.
+        history: latestPerTrip((history.data ?? []).filter(row => isLocation(row.origin) && isLocation(row.destination))),
       } });
     } catch (failure) { if (current.current === uid && generation.current === version) setError(failure instanceof Error ? failure.message : 'Unable to load saved items.'); }
     finally { if (current.current === uid && generation.current === version) setLoading(false); }

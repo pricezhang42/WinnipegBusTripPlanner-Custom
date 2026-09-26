@@ -96,28 +96,35 @@ and [mobile email links](https://supabase.com/docs/guides/auth/native-mobile-dee
 ### Favorite locations, favorite trips, and history
 
 Run `supabase/migrations/202609250001_saved_places_and_trips.sql` once in your
-Supabase project's SQL Editor before using saved items. The public client key
+Supabase project's SQL Editor before using saved items, then run
+`supabase/migrations/202609260001_dedupe_trip_history.sql` once as well. The public client key
 cannot create tables or apply migrations. This creates three tables with row
 level security and a signed-in-only `record_planned_trip` function. The function
 uses the authenticated user's ID, serializes concurrent history writes, and
-retains exactly the most recent 10 records. No transit backend changes are needed.
+retains the 10 most recent **distinct** trips. The second migration keeps one entry per
+trip: same origin and destination, with coordinates rounded to 4 decimals (about 10 m),
+and a reversed trip counts as a different trip. Re-planning a trip moves it to the top
+with the new time; running the migration removes existing duplicates, keeping the
+latest. The app also hides duplicates on its own until the migration is applied. No
+transit backend changes are needed.
 
 - Tap either location field to see favorite locations. Typing hides favorites;
   normal geocoding starts at three characters. Clearing shows favorites again.
 - Tap an outlined red heart beside a location to save it, or a filled heart to
   remove it. Tapping the heart does not choose that location.
-- The history icon beside Origin opens the last 10 successful searches.
+- The history icon beside Origin opens the last 10 different trips searched successfully.
 - The red heart beside Destination opens favorite trips. Selecting a trip fills
   both fields; press Go to search with the current date/time settings.
 - After a search returns routes, “Save Trip to Fav” saves the searched endpoints.
-  Repeated searches create history entries; duplicate favorites are prevented by
+  Repeated searches of the same trip keep only the latest history entry; duplicate favorites are prevented by
   per-user database keys based on endpoint coordinates. Reverse trips are distinct.
 - Guests can plan trips; personal list actions prompt sign-in. Failed or empty
   route searches are not saved. Saved-data failures do not prevent trip planning.
 
 After applying the migration, verify with two accounts that neither can read or
-modify the other's rows. Plan 11 successful trips and confirm history contains
-10 records, including after restarting the app. Also check favoriting a location
+modify the other's rows. Plan 11 different successful trips and confirm history contains
+10 records, including after restarting the app. Plan one trip three times and confirm it
+appears once, at the top, with the latest time. Also check favoriting a location
 from either input, typed-query behavior, favorite removal, offline errors, and
 restoring both endpoints from each trip popup.
 

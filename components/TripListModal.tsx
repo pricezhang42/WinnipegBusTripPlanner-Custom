@@ -11,7 +11,7 @@ export function TripListModal({ kind, trips, loading, error, busy, onClose, onSe
       <View style={styles.row}><Text style={styles.title}>{kind === 'history' ? 'Recent trips' : 'Favorite trips'}</Text><Pressable accessibilityRole="button" onPress={onClose} style={styles.button}><Text>Close</Text></Pressable></View>
       {loading && <ActivityIndicator />}
       {!!error && <Pressable accessibilityRole="button" onPress={onRetry} style={styles.button}><Text>{error} Tap to retry.</Text></Pressable>}
-      <FlatList data={trips} keyExtractor={item => String(item.id ?? item.trip_key)} ListEmptyComponent={!loading && !error ? <Text style={styles.button}>{kind === 'history' ? 'Your last 10 successful trip searches will appear here.' : 'Plan a trip, then tap “Save Trip to Fav”.'}</Text> : null}
+      <FlatList data={trips} keyExtractor={item => String(item.id ?? item.trip_key)} ListEmptyComponent={!loading && !error ? <Text style={styles.button}>{kind === 'history' ? 'Your last 10 different trips will appear here.' : 'Plan a trip, then tap “Save Trip to Fav”.'}</Text> : null}
         renderItem={({ item }) => <View style={styles.row}>
           <Pressable accessibilityRole="button" accessibilityLabel={`Use trip from ${item.origin.place_name} to ${item.destination.place_name}`} style={styles.trip} onPress={() => onSelect(item)}>
             <Text style={styles.name}>{item.origin.place_name}</Text><Text style={styles.destination}>To {item.destination.place_name}</Text>
