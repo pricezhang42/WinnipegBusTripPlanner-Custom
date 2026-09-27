@@ -17,7 +17,7 @@ import { useAuth } from '@/providers/AuthProvider';
 import { useSavedTrips } from '@/hooks/useSavedTrips';
 import { Location, Trip, tripKey } from '@/lib/savedTrips';
 import { TripListModal } from '@/components/TripListModal';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
 import RouteRetrieve from '@/components/RouteRetrieve';
@@ -45,6 +45,7 @@ export default function MainScreen() {
 
   const { session } = useAuth();
   const saved = useSavedTrips();
+  useFocusEffect(React.useCallback(() => { void saved.refresh(); }, [saved.refresh]));
   const [activeInput, setActiveInput] = useState<'origin' | 'destination' | null>(null);
   const [tripList, setTripList] = useState<'history' | 'favorites' | null>(null);
   const [plannedTrip, setPlannedTrip] = useState<Trip | null>(null);

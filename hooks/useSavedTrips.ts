@@ -48,6 +48,11 @@ export function useSavedTrips() {
     } finally { mutation.current = false; setBusy(false); }
   }
   return { ...lists, loading, busy, error: uid ? error : '', refresh,
+    removeLocation: (location: Location) => write(() => supabase!.from('favorite_locations').delete().eq('user_id', uid!).eq('location_key', locationKey(location))),
+    removeHistory: (trip: SavedTrip) => {
+      if (trip.id == null) return Promise.reject(new Error('This history entry could not be identified. Refresh and try again.'));
+      return write(() => supabase!.from('trip_history').delete().eq('user_id', uid!).eq('id', trip.id!));
+    },
     toggleLocation: (location: Location) => {
       const key = locationKey(location);
       return write(() => lists.locations.some(item => locationKey(item) === key)

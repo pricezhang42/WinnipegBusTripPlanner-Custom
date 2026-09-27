@@ -15,7 +15,7 @@
 🗺️ Interactive Route Maps
 - View the entire bus ride on a map, including bus lines, ride segments, and walk transfers.
 
-- Route polylines come from the Winnipeg Transit **GTFS feed** (`shapes.txt`), sliced to the exact segment between your boarding and alighting stops. OpenStreetMap tiles underlay the map for high-accuracy visuals.
+- Route polylines come from the Winnipeg Transit **GTFS feed**. The backend matches each ride to the GTFS line that serves its boarding and alighting stops (by stop ID) and returns that stretch with the trip plan, so the map needs no extra requests. Each ride is drawn in its own colour, walking and transfer legs as dashed grey lines, and a straight line is used if a ride has no match. OpenStreetMap tiles underlay the map.
 
 Each ride is highlighted with different colors for clarity.
 
