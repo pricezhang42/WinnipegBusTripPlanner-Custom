@@ -128,6 +128,14 @@ appears once, at the top, with the latest time. Also check favoriting a location
 from either input, typed-query behavior, favorite removal, offline errors, and
 restoring both endpoints from each trip popup.
 
+### Search date and time
+
+Search controls and native date/time pickers use **Winnipeg time**, independent
+of the device timezone. Now always searches for departure after the current
+instant; its disabled mode picker displays `depart-after`. Turning Now off
+restores the selected manual date, time and mode. See the
+[time-handling flow and checks](docs/trip-search-time.md).
+
 ### Expanded trip itineraries
 
 Use the chevron on the right of a search-result card to expand its itinerary.

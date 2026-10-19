@@ -1,4 +1,5 @@
 import {
+  AppState,
   StyleSheet,
   Pressable,
   Alert,
@@ -21,22 +22,41 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
 import RouteRetrieve from '@/components/RouteRetrieve';
+import {
+  NOW_TRAVEL_MODE, TRAVEL_MODES, WINNIPEG_TIME_ZONE, tripSearchTime, winnipegDateTime, type TravelMode,
+} from '@/lib/tripSearchTime';
 import { TripCard } from '@/components/TripCard';
 import MapboxAutocomplete from '@/components/MapboxAutocomplete';
-
-const MODES = ['depart-before', 'depart-after', 'arrive-before', 'arrive-after'];
 
 export default function MainScreen() {
   const navigation = useNavigation();
 
   const [origin, setOrigin] = useState<Location | null>(null);
   const [destination, setDestination] = useState<Location | null>(null);
-  const [dateTime, setDateTime] = useState(new Date());
+  const [selectedDateTime, setSelectedDateTime] = useState(() => new Date());
+  const [now, setNow] = useState(() => new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [pickerMode, setPickerMode] = useState<'date' | 'time'>('date');
-  const [travelMode, setTravelMode] = useState('depart-after');
+  const [travelMode, setTravelMode] = useState<TravelMode>(NOW_TRAVEL_MODE);
   const [useNow, setUseNow] = useState(true);
   const [enableNapAlarm, setEnableNapAlarm] = useState(false);
+
+  useEffect(() => {
+    if (!useNow) return;
+    const refreshClock = () => {
+      const current = new Date();
+      // Only the displayed minute changes; avoid rendering the whole list every second.
+      setNow(previous => Math.floor(previous.getTime() / 60000) === Math.floor(current.getTime() / 60000)
+        ? previous : current);
+    };
+    refreshClock();
+    const interval = setInterval(refreshClock, 1000);
+    const listener = AppState.addEventListener('change', state => { if (state === 'active') refreshClock(); });
+    return () => { clearInterval(interval); listener.remove(); };
+  }, [useNow]);
+
+  const displayedTime = winnipegDateTime(useNow ? now : selectedDateTime);
+  const activeTravelMode = useNow ? NOW_TRAVEL_MODE : travelMode;
 
   const [plans, setPlans] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -80,10 +100,6 @@ export default function MainScreen() {
     setShowDatePicker(true);
   };
 
-  const pad = (n: number) => n.toString().padStart(2, '0');
-  const formatDate = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-  const formatTime = (d: Date) => `${pad(d.getHours())}:${pad(d.getMinutes())}:00`;
-
   const handleGo = () => {
     if (!origin || !destination) {
       Alert.alert('Please select both origin and destination');
@@ -95,10 +111,9 @@ export default function MainScreen() {
   const fetchPlans = async () => {
     if (!origin || !destination) return;
 
-    const now = new Date();
-    const dateObj = useNow ? now : dateTime;
-    const date = formatDate(dateObj);
-    const time = formatTime(dateObj);
+    const currentInstant = new Date();
+    const searchTime = tripSearchTime({ useNow, selectedDateTime, travelMode }, currentInstant);
+    if (useNow) setNow(currentInstant);
 
     const version = ++requestVersion.current;
     const searchedTrip = { origin, destination };
@@ -108,9 +123,9 @@ export default function MainScreen() {
     const { plans: result, shelters: shelterMap } = await routeRetrieve.getPlans(
       origin.geometry.coordinates,
       destination.geometry.coordinates,
-      date,
-      time,
-      travelMode
+      searchTime.date,
+      searchTime.time,
+      searchTime.mode
     );
 
     if (requestVersion.current !== version) return;
@@ -171,35 +186,37 @@ export default function MainScreen() {
             active={activeInput === 'destination'} onFocus={() => { setActiveInput('destination'); saved.refresh(); }} onClose={() => setActiveInput(null)}
             action={<Pressable accessibilityRole="button" accessibilityLabel="Favorite trips" style={styles.iconButton} onPress={() => openTrips('favorites')}><FontAwesome name="heart" size={24} color="#cc2446" /></Pressable>} />
 
+          <Text style={styles.timeZoneLabel}>Date and time · Winnipeg</Text>
           <View style={styles.row}>
             <TouchableOpacity
               style={[styles.timeBox, useNow && styles.disabledBox]}
+              accessibilityLabel="Trip date in Winnipeg"
               onPress={() => !useNow && showPicker('date')}
               disabled={useNow}
             >
               <Text style={useNow && styles.disabledText}>
-                {dateTime.toLocaleDateString('en-CA', { timeZone: 'America/Winnipeg' })}
+                {displayedTime.date}
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={[styles.timeBox, useNow && styles.disabledBox]}
+              accessibilityLabel="Trip time in Winnipeg"
               onPress={() => !useNow && showPicker('time')}
               disabled={useNow}
             >
               <Text style={useNow && styles.disabledText}>
-                {dateTime.toLocaleTimeString('en-CA', {
-                  timeZone: 'America/Winnipeg',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  hour12: false,
-                })}
+                {displayedTime.time.slice(0, 5)}
               </Text>
             </TouchableOpacity>
 
             <View style={styles.switchWrapper}>
               <Text style={styles.switchLabel}>Now</Text>
-              <Switch value={useNow} onValueChange={setUseNow} />
+              <Switch accessibilityLabel="Use current Winnipeg departure time" value={useNow} onValueChange={enabled => {
+                setShowDatePicker(false);
+                if (enabled) setNow(new Date());
+                setUseNow(enabled);
+              }} />
             </View>
 
             <View style={styles.switchWrapper}>
@@ -211,31 +228,32 @@ export default function MainScreen() {
           <View style={styles.bottomRow}>
             <View style={styles.modePickerWrapper}>
               <Picker
-                selectedValue={travelMode}
+                selectedValue={activeTravelMode}
                 onValueChange={setTravelMode}
                 enabled={!useNow}
               >
-                {MODES.map((mode) => (
+                {TRAVEL_MODES.map((mode) => (
                   <Picker.Item label={mode} value={mode} key={mode} />
                 ))}
               </Picker>
             </View>
 
-            <TouchableOpacity style={[styles.goButton, loading && { opacity: 0.5 }]} disabled={loading} onPress={handleGo}>
+            <TouchableOpacity style={[styles.goButton, loading && { opacity: 0.5 }]} accessibilityLabel="Search trips" disabled={loading} onPress={handleGo}>
               <Text style={styles.goButtonText}>Go</Text>
             </TouchableOpacity>
           </View>
 
           {showDatePicker && (
             <DateTimePicker
-              value={dateTime}
+              value={selectedDateTime}
+              timeZoneName={WINNIPEG_TIME_ZONE}
               mode={pickerMode}
               is24Hour={true}
               display={Platform.OS === 'android' ? 'spinner' : 'default'}
-              minimumDate={new Date()}
+              minimumDate={pickerMode === 'date' ? new Date() : undefined}
               onChange={(event, selectedDate) => {
                 setShowDatePicker(false);
-                if (selectedDate) setDateTime(selectedDate);
+                if (event.type === 'set' && selectedDate) setSelectedDateTime(selectedDate);
               }}
             />
           )}
@@ -275,6 +293,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     flexWrap: 'wrap',
   },
+  timeZoneLabel: { marginBottom: 8, color: '#555', fontSize: 13 },
   timeBox: {
     borderWidth: 1,
     borderColor: '#ccc',
