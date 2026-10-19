@@ -45,16 +45,21 @@ reliability never prevents a trip plan from being returned.
 
 ## Pass-up data boundary
 
-The existing `reliability.passupRisk` contains the deployed visit-based v2
-category. The app preserves its existing behavior: only Medium/High adds a
-warning, with the category in the accessibility label. Low/Unknown adds no row.
+The independent ride-level `passupRisk` uses approved policy
+`report-scheduled-visit-ratio-v1`: 150 m reports divided by recorded visits grouped
+by scheduled time. Medium starts at 1% with reports on two dates; High at 2.5%
+with reports on three dates, subject to sample minimums. The app displays only
+Medium/High warnings, with the category in the accessibility label. It does not
+display the numeric report ratio.
 
-New schema-3 report evidence is served independently as ride-level
-`passupReports`. It counts unique report IDs by the **report's** local time, not
-matched bus visits. Departure totals are reference context, not a probability
-denominator. A report group can exist without a timing group or recorded
-departures. Report-based category rules remain **under review**; the app does not
-convert these counts to labels or percentages. See [pass-up policy](passup-risk-policy.md).
+Ride-level `passupReports` contains schema-3 report counts and reference departure
+counts independently of timing availability. Different report IDs can describe
+one bus, so the ratio is not a boarding probability. A report group can exist
+without recorded departures and then has an Unknown category.
+
+Older backends without the independent category still use the nested visit-based
+`reliability.passupRisk`. An explicit new Unknown never falls back to that old
+category. See [pass-up policy](passup-risk-policy.md) for the approved gates.
 
 ## Running and checking
 

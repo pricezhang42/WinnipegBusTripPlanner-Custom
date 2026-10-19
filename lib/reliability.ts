@@ -1,12 +1,13 @@
-/** Only the fields the ride summary consumes; additional API statistics stay server-side. */
+/** Only the API fields consumed by the ride summary. */
 export type PassupRiskLevel = 'low' | 'medium' | 'high' | 'unknown';
+export type RidePassupRisk = { level: PassupRiskLevel; basis?: string; policyVersion?: string };
 export type RideReliability =
   | { status: 'unavailable'; reason: string }
   | {
       status: 'available';
       earlyShare: number;
       lateShare: number;
-      passupRisk?: { level: PassupRiskLevel; basis?: string };
+      passupRisk?: RidePassupRisk;
     };
 
 export const ON_TIME_WINDOW = '>1 min early / >5 min late';
@@ -87,8 +88,14 @@ export function departureSummary(reliability?: RideReliability): DepartureSummar
   return { status: 'available', percent, level, details, explanation };
 }
 
-export function passupRiskLabel(reliability?: RideReliability): string {
-  const level = reliability?.status === 'available' ? reliability.passupRisk?.level : undefined;
+function passupLevel(reliability?: RideReliability, risk?: RidePassupRisk): PassupRiskLevel | undefined {
+  // An explicit Unknown from the new backend must never fall back to an old label.
+  if (risk !== undefined) return risk?.level;
+  return reliability?.status === 'available' ? reliability.passupRisk?.level : undefined;
+}
+
+export function passupRiskLabel(reliability?: RideReliability, risk?: RidePassupRisk): string {
+  const level = passupLevel(reliability, risk);
   switch (level) {
     case 'low': return 'Low';
     case 'medium': return 'Medium';
@@ -97,7 +104,7 @@ export function passupRiskLabel(reliability?: RideReliability): string {
   }
 }
 
-export function showPassupWarning(reliability?: RideReliability): boolean {
-  const level = reliability?.status === 'available' ? reliability.passupRisk?.level : undefined;
+export function showPassupWarning(reliability?: RideReliability, risk?: RidePassupRisk): boolean {
+  const level = passupLevel(reliability, risk);
   return level === 'medium' || level === 'high';
 }

@@ -69,3 +69,29 @@ test('not-on-time percent is colored by band after rounding', async () => {
     await act(async () => tree.unmount());
   }
 });
+
+
+test('report-based warning works without departure timing and never displays a numeric report ratio', async () => {
+  let tree!: ReactTestRenderer;
+  await act(async () => {
+    tree = renderer.create(<RideReliability color="black" muted="gray" border="gray"
+      reliability={{ status: 'unavailable', reason: 'insufficient_comparable_history' }}
+      passupRisk={{ level: 'high', policyVersion: 'report-scheduled-visit-ratio-v1' }} />);
+  });
+  const lines = rows(tree);
+  expect(lines).toHaveLength(2);
+  expect(JSON.stringify(lines[0].props.children)).toContain('Unavailable');
+  expect(lines[1].props.accessibilityLabel).toContain('High');
+  expect(JSON.stringify(tree.toJSON())).not.toContain('2.5%');
+  await act(async () => tree.unmount());
+});
+
+test('explicit report-based Unknown takes precedence over a legacy High category', () => {
+  const timing = { status: 'available', earlyShare: .1, lateShare: .1,
+    passupRisk: { level: 'high' } } as const;
+  expect(showPassupWarning(timing, { level: 'unknown' })).toBe(false);
+  expect(passupRiskLabel(timing, { level: 'unknown' })).toBe('Unknown');
+  expect(showPassupWarning(timing)).toBe(true); // Compatibility with older backends.
+  expect(showPassupWarning(timing, null as any)).toBe(false);
+  expect(passupRiskLabel(timing, null as any)).toBe('Unknown');
+});

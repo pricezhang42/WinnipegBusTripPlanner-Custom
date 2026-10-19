@@ -33,14 +33,19 @@ Never replace a manifest without its matching shards.
 | Artifact | Backend path override | Purpose |
 |---|---|---|
 | `reliability.json` + timing shards | `RELIABILITY_DATA_PATH` | Departure statistics, schema 2 |
-| `passup-report-counts.json` + report shards | `PASSUP_REPORT_DATA_PATH` | Evidence only, schema 3; label policy pending |
+| `passup-report-counts.json` + report shards | `PASSUP_REPORT_DATA_PATH` | Report counts, schema 3; approved ratio policy |
 | Existing `passup-risk.json` + risk shards | `PASSUP_RISK_DATA_PATH` | Legacy visit-based v2 categories only |
 
 Default paths are in the backend's `data/` directory. The new report reader checks
 its evidence identity and departure-source hash against timing when present.
 Missing/incompatible files produce unavailable evidence without blocking plans.
-New report artifacts cannot be substituted for legacy risk artifacts. This code
-refactor does not install artifacts or deploy the backend.
+New report artifacts cannot be substituted for legacy risk artifacts. The complete
+report manifest/shards and category audit are installed in the backend checkout.
+The legacy files remain for older clients. No hosted backend deployment was performed.
 
 The backend's 30-day freshness/horizon and calendar rules still apply. Larger
 historical coverage does not make months-ahead estimates available.
+
+The approved category audit is `passup-policy-report.json`: 70,428 Low, 161 Medium,
+35 High and 22,985 Unknown across 93,609 groups. Applying the policy reused the
+existing validated report shards; raw-data matching and timing did not change.

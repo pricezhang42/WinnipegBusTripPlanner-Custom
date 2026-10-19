@@ -1,46 +1,45 @@
-# Pass-up evidence and category policy
+# Pass-up report ratio policy
 
-## Report-based rules remain under review
+`report-scheduled-visit-ratio-v1` is approved for implementation. Use unique
+full-bus reports matched to the nearest same-route/destination/date stop within
+150 m, divided by recorded visits in the corresponding scheduled-time group.
+The denominator is cleaned departure observations, not all GTFS scheduled trips.
+Reports use reported local time; reference visits use scheduled local time.
+Both use exact stop, route, destination, weekday/weekend and a two-hour Winnipeg
+window, pooling all seasons.
 
-The October 18, 2026 rebuild matches each full-bus report to the nearest stop on
-the same route, destination and covered date, within 150 m. It does not compare
-runner-up stops or match a report to a specific bus visit. Groups use the report's
-Winnipeg timestamp, weekday/weekend and fixed two-hour window, pooling seasons.
-Spatial profiles at 60 m, 100 m and 150 m describe matching sensitivity.
+| Category | Rule |
+|---|---|
+| Low | Ratio below 1%; zero reports additionally need 120 visits |
+| Medium | Ratio from 1% to below 2.5%, with reports on at least 2 dates |
+| High | Ratio at least 2.5%, with reports on at least 3 dates |
+| Unknown | Insufficient/invalid evidence or insufficient reporting persistence |
 
-Schema 3 (`stop-report-counts-v1`) counts unique report IDs and reporting dates.
-Different IDs can describe the same bus. Reference departure totals use scheduled
-local time and are context only; counts can exceed departures, and groups with
-zero reference departures are retained. Counts are not boarding-failure rates.
+All categories first need at least 60 visits across 10 dates. A High ratio with
+only two reporting dates stays Unknown. Ratios above one are flagged Unknown
+rather than capped. The old +50 score penalty is absent. The 60 m/100 m profiles
+are retained for auditing but do not veto the broad category.
 
-The user chose to **keep label rules under review**. Candidate comparisons in the
-analysis repository are not production policy. The backend returns
-`passupReports.labelStatus: pending_policy_review` with evidence, independently
-of departure timing availability. The app does not display new categories or
-percentages from this field.
+Reports are not verified affected visits: different IDs can describe one bus,
+reporting may be incomplete, approximate coordinates affect assignment and the
+time bases differ. Categories are descriptive patterns, not boarding probabilities.
 
-## Existing app behavior retained
+The backend serves the new category in independent ride-level `passupRisk` and
+counts in `passupReports`. The app prefers this explicit category, including
+Unknown, even if departure timing is unavailable. Only older backends without the
+field use `reliability.passupRisk`. Legacy visit-based files remain for older
+clients during migration; their thresholds do not govern the new report reader.
 
-The separate deployed `passup-risk.json` artifact uses legacy
-`reported-pattern-v2` visit evidence. Its reader verifies grouping, cutoff,
-departure-source hash and agreement across the three stored distance/time
-profiles (`60m_120s`, `100m_180s`, `150m_300s`). These are legacy artifact checks,
-not instructions for building new report evidence.
+The UI preserves the departure row and adds a pass-up warning only for Medium or
+High; the accessibility label names the category. Numeric report ratios, raw
+counts and extra audit rows are not displayed.
 
-Existing category gates are unchanged:
+Current evidence: 93,609 groups, with **70,428 Low, 161 Medium, 35 High and 22,985
+Unknown**. These are groups, not routes or riders. The source cutoff is September
+24, 2026; freshness/calendar checks still apply. The complete report artifact set
+is prepared in the companion backend; hosted deployment and app reload are
+separate steps.
 
-- At least 60 recorded visits across 10 dates; zero-report Low requires 120 visits.
-- Score = reported visits / (recorded visits + 50).
-- Medium starts at 0.010 with reports on at least 2 dates.
-- High starts at 0.025 with reports on at least 3 dates.
-- Lower scores are Low; insufficient evidence/persistence, incompatible data or
-  disagreement between profiles gives Unknown.
-
-These categories describe reported historical patterns, not calibrated
-probabilities. The UI shows a warning only for Medium/High and names the category
-in accessibility text. Low/Unknown produces no warning row. Missing risk evidence
-does not remove departure statistics. Do not apply these visit-based thresholds
-to report counts.
-
-See [historical data](historical-data.md) for current artifacts and the
-[reliability flow](trip-reliability-implementation.md) for the departure summary.
+See [historical data](historical-data.md) for installation and the
+[analysis policy](https://github.com/pricezhang42/Winnipeg-Transit-Data-Analysis/blob/main/REPORT_TIME_PASSUPS.md)
+for matching and audits.

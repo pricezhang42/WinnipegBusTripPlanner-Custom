@@ -6,19 +6,21 @@ import {
   passupRiskLabel,
   showPassupWarning,
   type RideReliability as Reliability,
+  type RidePassupRisk,
 } from '@/lib/reliability';
 
 type Props = {
   reliability?: Reliability;
+  passupRisk?: RidePassupRisk;
   color: string;
   muted: string;
   border: string;
 };
 
-export function RideReliability({ reliability, color, muted, border }: Props) {
+export function RideReliability({ reliability, passupRisk, color, muted, border }: Props) {
   const departure = departureSummary(reliability);
   const theme = useColorScheme() === 'dark' ? 'dark' : 'light';
-  const riskLabel = passupRiskLabel(reliability);
+  const riskLabel = passupRiskLabel(reliability, passupRisk);
 
   return (
     <View style={[styles.box, { borderColor: border }]} testID="ride-reliability-summary">
@@ -35,7 +37,7 @@ export function RideReliability({ reliability, color, muted, border }: Props) {
           </>
         ) : 'Unavailable'}
       </Text>
-      {showPassupWarning(reliability) && (
+      {showPassupWarning(reliability, passupRisk) && (
         <Text
           style={[styles.line, { color: muted }]}
           accessibilityLabel={`Historical pass-up risk: ${riskLabel}. Relative reported history, not a probability or guarantee of boarding.`}
