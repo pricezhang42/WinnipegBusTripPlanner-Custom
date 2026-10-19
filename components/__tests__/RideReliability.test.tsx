@@ -47,6 +47,7 @@ test('pass-up line displays Low, Medium or High as text and hides Unknown', asyn
       const label = passupRiskLabel(reliability);
       expect(lines[1].props.children).toEqual(['Historical pass-up risk: ', label]);
       expect(lines[1].props.accessibilityLabel).toContain(label);
+      expect(lines[1].props.style[1].color).toBe({ Low: '#15803d', Medium: '#8a6500', High: '#b91c1c' }[label as 'Low' | 'Medium' | 'High']);
       expect(JSON.stringify(tree.toJSON())).not.toContain('⚠️');
     }
     await act(async () => tree.unmount());

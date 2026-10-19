@@ -31,7 +31,7 @@ field use `reliability.passupRisk`. Legacy visit-based files remain for older
 clients during migration; their thresholds do not govern the new report reader.
 
 The UI preserves the departure row and displays “Historical pass-up risk: Low”,
-“Medium” or “High” as text. Unknown or missing categories produce no pass-up row.
+“Medium” or “High” as text, colored green, yellow and red respectively. Unknown or missing categories produce no pass-up row.
 The accessibility label also names the category. Numeric report ratios, raw
 counts and extra audit rows are not displayed.
 

@@ -9,6 +9,12 @@ import {
   type RidePassupRisk,
 } from '@/lib/reliability';
 
+// Darker yellow stays readable on light cards; dark mode uses brighter shades.
+const PASSUP_RISK_COLORS: Record<'light' | 'dark', Record<string, string>> = {
+  light: { High: '#b91c1c', Medium: '#8a6500', Low: '#15803d' },
+  dark: { High: '#fca5a5', Medium: '#fde047', Low: '#4ade80' },
+};
+
 type Props = {
   reliability?: Reliability;
   passupRisk?: RidePassupRisk;
@@ -39,7 +45,7 @@ export function RideReliability({ reliability, passupRisk, color, muted, border 
       </Text>
       {showPassupRisk(reliability, passupRisk) && (
         <Text
-          style={[styles.line, { color: muted }]}
+          style={[styles.line, { color: PASSUP_RISK_COLORS[theme][riskLabel] ?? muted }]}
           accessibilityLabel={`Historical pass-up risk: ${riskLabel}. Relative reported history, not a probability or guarantee of boarding.`}
         >
           Historical pass-up risk: {riskLabel}
