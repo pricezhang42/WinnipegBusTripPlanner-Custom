@@ -140,5 +140,6 @@ Walking uses dotted connectors and rides use solid connectors. Dates appear when
 an itinerary crosses midnight. Missing times or stop details are labeled rather
 than guessed. Ride endpoints can come from immediately adjacent walk/transfer
 segments, as in the Transit API. Route badge colors identify legs and are not
-claimed to be official route colors. Reliability estimates are not included yet;
-RideDetails provides the component where they can later be displayed.
+claimed to be official route colors. Each ride also shows historical departure timing and, when supported, a pass-up
+warning. These describe past observations rather than live predictions. See the
+[current reliability flow](docs/trip-reliability-implementation.md).

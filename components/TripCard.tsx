@@ -27,7 +27,7 @@ export function RideDetails({ segment, index, palette }: { segment: Segment; ind
       {!!segment.route?.name && <Text style={[styles.routeName, { color: palette.text }]}>{segment.route.name}</Text>}
       {!!segment.variant?.name && <Text style={[styles.secondary, { color: palette.muted }]}>{segment.variant.name}</Text>}
     </View></View>
-    <RideReliability reliability={segment.reliability} color={palette.text} muted={palette.muted} border={palette.line} />
+    <RideReliability passupRisk={segment.passupRisk} reliability={segment.reliability} color={palette.text} muted={palette.muted} border={palette.line} />
   </>;
 }
 export function TripCard({ plan, expanded, onToggle, onViewMap, originName, destinationName, shelters, number }: {

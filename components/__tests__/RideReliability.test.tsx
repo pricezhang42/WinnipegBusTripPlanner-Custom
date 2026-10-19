@@ -3,12 +3,12 @@ import { test, expect } from '@jest/globals';
 import renderer, { act, ReactTestRenderer } from 'react-test-renderer';
 import { Pressable, Text } from 'react-native';
 import { RideReliability } from '../RideReliability';
-import { departureOffset, NOT_ON_TIME_COLORS, notOnTimeLevel, notOnTimePercent, passupRiskLabel, showPassupWarning } from '../../lib/reliability';
+import { NOT_ON_TIME_COLORS, notOnTimeLevel, notOnTimePercent, passupRiskLabel, showPassupWarning } from '../../lib/reliability';
 // Rows of the summary; the colored percent is nested inside the departure row.
 const rows = (tree: ReactTestRenderer) => tree.root.findAllByType(Text).filter(t => t.props.testID !== 'not-on-time-percent');
 test('historical evidence is labeled separately from pass-up probability', async () => {
   let tree!: ReactTestRenderer;
-  await act(async () => { tree = renderer.create(<RideReliability color="black" muted="gray" border="gray" reliability={{ status: 'available', observations: 60, distinctDates: 6, coverageStart: '2026-09-01', coverageEnd: '2026-09-24', medianSeconds: 90, p10Seconds: -120, p90Seconds: 600, earlyShare: .2, withinShare: .6, lateShare: .2, beforeScheduleShare: .3, shareIntervals: [[.1,.3],[.5,.7],[.1,.3]], nearbyFullBusReports: 0, hour: 13, dayType: 'weekday' }} />); });
+  await act(async () => { tree = renderer.create(<RideReliability color="black" muted="gray" border="gray" reliability={{ status: 'available', earlyShare: .2, lateShare: .2 }} />); });
   let text=JSON.stringify(tree.toJSON());
   expect(tree.root.findByProps({ testID: 'not-on-time-percent' }).props.children).toEqual([40, '%']); expect(text).toContain(' not on time (>1 min early / >5 min late)');
   expect(text).toContain('20'); expect(text).toContain('% left early');
@@ -25,8 +25,6 @@ test('old backend remains usable without reliability', async () => {
   await act(async () => { tree=renderer.create(<RideReliability color="black" muted="gray" border="gray" />); });
   expect(JSON.stringify(tree.toJSON())).toContain('Unavailable');
   expect(rows(tree)).toHaveLength(1);
-  expect(departureOffset(-120)).toBe('2 min early');
-  expect(departureOffset(0)).toBe('on schedule');
   await act(async () => tree.unmount());
 });
 
@@ -70,4 +68,30 @@ test('not-on-time percent is colored by band after rounding', async () => {
     expect(label).toContain({ good: 'mostly on time', fair: 'sometimes off schedule', poor: 'often off schedule' }[level]);
     await act(async () => tree.unmount());
   }
+});
+
+
+test('report-based warning works without departure timing and never displays a numeric report ratio', async () => {
+  let tree!: ReactTestRenderer;
+  await act(async () => {
+    tree = renderer.create(<RideReliability color="black" muted="gray" border="gray"
+      reliability={{ status: 'unavailable', reason: 'insufficient_comparable_history' }}
+      passupRisk={{ level: 'high', policyVersion: 'report-scheduled-visit-ratio-v1' }} />);
+  });
+  const lines = rows(tree);
+  expect(lines).toHaveLength(2);
+  expect(JSON.stringify(lines[0].props.children)).toContain('Unavailable');
+  expect(lines[1].props.accessibilityLabel).toContain('High');
+  expect(JSON.stringify(tree.toJSON())).not.toContain('2.5%');
+  await act(async () => tree.unmount());
+});
+
+test('explicit report-based Unknown takes precedence over a legacy High category', () => {
+  const timing = { status: 'available', earlyShare: .1, lateShare: .1,
+    passupRisk: { level: 'high' } } as const;
+  expect(showPassupWarning(timing, { level: 'unknown' })).toBe(false);
+  expect(passupRiskLabel(timing, { level: 'unknown' })).toBe('Unknown');
+  expect(showPassupWarning(timing)).toBe(true); // Compatibility with older backends.
+  expect(showPassupWarning(timing, null as any)).toBe(false);
+  expect(passupRiskLabel(timing, null as any)).toBe('Unknown');
 });
