@@ -30,8 +30,10 @@ Unknown, even if departure timing is unavailable. Only older backends without th
 field use `reliability.passupRisk`. Legacy visit-based files remain for older
 clients during migration; their thresholds do not govern the new report reader.
 
-The UI preserves the departure row and adds a pass-up warning only for Medium or
-High; the accessibility label names the category. Numeric report ratios, raw
+The UI preserves the departure row and displays “Pass-up risk: Low”,
+“Medium” or “High” as text. Only the category word is colored green, yellow or red;
+the “Pass-up risk:” prefix keeps the normal muted text color. Unknown or missing categories produce no pass-up row.
+The accessibility label also names the category. Numeric report ratios, raw
 counts and extra audit rows are not displayed.
 
 Current evidence: 93,609 groups, with **70,428 Low, 161 Medium, 35 High and 22,985

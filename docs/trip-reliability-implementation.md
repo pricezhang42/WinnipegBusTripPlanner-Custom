@@ -48,8 +48,8 @@ reliability never prevents a trip plan from being returned.
 The independent ride-level `passupRisk` uses approved policy
 `report-scheduled-visit-ratio-v1`: 150 m reports divided by recorded visits grouped
 by scheduled time. Medium starts at 1% with reports on two dates; High at 2.5%
-with reports on three dates, subject to sample minimums. The app displays only
-Medium/High warnings, with the category in the accessibility label. It does not
+with reports on three dates, subject to sample minimums. The app displays Low, Medium or High as text, with the category also in the
+accessibility label. Unknown or missing categories produce no pass-up row. It does not
 display the numeric report ratio.
 
 Ride-level `passupReports` contains schema-3 report counts and reference departure
