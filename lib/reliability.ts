@@ -104,7 +104,7 @@ export function passupRiskLabel(reliability?: RideReliability, risk?: RidePassup
   }
 }
 
-export function showPassupWarning(reliability?: RideReliability, risk?: RidePassupRisk): boolean {
+export function showPassupRisk(reliability?: RideReliability, risk?: RidePassupRisk): boolean {
   const level = passupLevel(reliability, risk);
-  return level === 'medium' || level === 'high';
+  return level === 'low' || level === 'medium' || level === 'high';
 }

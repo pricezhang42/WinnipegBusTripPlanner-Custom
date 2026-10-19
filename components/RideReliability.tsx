@@ -4,7 +4,7 @@ import {
   departureSummary,
   NOT_ON_TIME_COLORS,
   passupRiskLabel,
-  showPassupWarning,
+  showPassupRisk,
   type RideReliability as Reliability,
   type RidePassupRisk,
 } from '@/lib/reliability';
@@ -37,12 +37,12 @@ export function RideReliability({ reliability, passupRisk, color, muted, border 
           </>
         ) : 'Unavailable'}
       </Text>
-      {showPassupWarning(reliability, passupRisk) && (
+      {showPassupRisk(reliability, passupRisk) && (
         <Text
           style={[styles.line, { color: muted }]}
           accessibilityLabel={`Historical pass-up risk: ${riskLabel}. Relative reported history, not a probability or guarantee of boarding.`}
         >
-          Historical pass-up risk: ⚠️
+          Historical pass-up risk: {riskLabel}
         </Text>
       )}
     </View>
