@@ -4,15 +4,15 @@ import renderer, { act, ReactTestRenderer } from 'react-test-renderer';
 import { Pressable, Text } from 'react-native';
 import { RideReliability } from '../RideReliability';
 import { NOT_ON_TIME_COLORS, notOnTimeLevel, notOnTimePercent, passupRiskLabel, showPassupRisk } from '../../lib/reliability';
-// Rows of the summary; the colored percent is nested inside the departure row.
-const rows = (tree: ReactTestRenderer) => tree.root.findAllByType(Text).filter(t => t.props.testID !== 'not-on-time-percent');
+// Summary rows exclude the nested colored percentage and category labels.
+const rows = (tree: ReactTestRenderer) => tree.root.findAllByType(Text).filter(t => !['not-on-time-percent', 'passup-risk-label'].includes(t.props.testID));
 test('historical evidence is labeled separately from pass-up probability', async () => {
   let tree!: ReactTestRenderer;
   await act(async () => { tree = renderer.create(<RideReliability color="black" muted="gray" border="gray" reliability={{ status: 'available', earlyShare: .2, lateShare: .2 }} />); });
   let text=JSON.stringify(tree.toJSON());
   expect(tree.root.findByProps({ testID: 'not-on-time-percent' }).props.children).toEqual([40, '%']); expect(text).toContain(' not on time (>1 min early / >5 min late)');
   expect(text).toContain('20'); expect(text).toContain('% left early');
-  expect(text).not.toContain('Historical pass-up risk');
+  expect(text).not.toContain('Pass-up risk');
   expect(text).not.toContain('resampled-date');
   expect(rows(tree)).toHaveLength(1);
   expect(tree.root.findAllByType(Pressable)).toHaveLength(0);
@@ -45,9 +45,12 @@ test('pass-up line displays Low, Medium or High as text and hides Unknown', asyn
     expect(JSON.stringify(tree.toJSON())).not.toContain('left early');
     if (shown) {
       const label = passupRiskLabel(reliability);
-      expect(lines[1].props.children).toEqual(['Historical pass-up risk: ', label]);
+      expect(lines[1].props.children[0]).toBe('Pass-up risk: ');
+      const category = tree.root.findByProps({ testID: 'passup-risk-label' });
+      expect(category.props.children).toBe(label);
+      expect(lines[1].props.style[1].color).toBe('gray');
       expect(lines[1].props.accessibilityLabel).toContain(label);
-      expect(lines[1].props.style[1].color).toBe({ Low: '#15803d', Medium: '#8a6500', High: '#b91c1c' }[label as 'Low' | 'Medium' | 'High']);
+      expect(category.props.style.color).toBe({ Low: '#15803d', Medium: '#8a6500', High: '#b91c1c' }[label as 'Low' | 'Medium' | 'High']);
       expect(JSON.stringify(tree.toJSON())).not.toContain('⚠️');
     }
     await act(async () => tree.unmount());
@@ -84,7 +87,8 @@ test('report-based label works without departure timing and never displays a num
   const lines = rows(tree);
   expect(lines).toHaveLength(2);
   expect(JSON.stringify(lines[0].props.children)).toContain('Unavailable');
-  expect(lines[1].props.children).toEqual(['Historical pass-up risk: ', 'High']);
+  expect(lines[1].props.children[0]).toBe('Pass-up risk: ');
+  expect(tree.root.findByProps({ testID: 'passup-risk-label' }).props.children).toBe('High');
   expect(lines[1].props.accessibilityLabel).toContain('High');
   expect(JSON.stringify(tree.toJSON())).not.toContain('2.5%');
   await act(async () => tree.unmount());

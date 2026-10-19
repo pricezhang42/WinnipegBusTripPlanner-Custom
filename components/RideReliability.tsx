@@ -45,10 +45,13 @@ export function RideReliability({ reliability, passupRisk, color, muted, border 
       </Text>
       {showPassupRisk(reliability, passupRisk) && (
         <Text
-          style={[styles.line, { color: PASSUP_RISK_COLORS[theme][riskLabel] ?? muted }]}
-          accessibilityLabel={`Historical pass-up risk: ${riskLabel}. Relative reported history, not a probability or guarantee of boarding.`}
+          style={[styles.line, { color: muted }]}
+          accessibilityLabel={`Pass-up risk: ${riskLabel}. Relative reported history, not a probability or guarantee of boarding.`}
         >
-          Historical pass-up risk: {riskLabel}
+          Pass-up risk: <Text
+            testID="passup-risk-label"
+            style={{ color: PASSUP_RISK_COLORS[theme][riskLabel] ?? muted }}
+          >{riskLabel}</Text>
         </Text>
       )}
     </View>
