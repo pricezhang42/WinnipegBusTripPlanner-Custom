@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { Alert } from 'react-native';
 import { apiUrl } from '@/constants/Backend';
+import type { TravelMode } from '@/lib/tripSearchTime';
 
 type ShelterType = 'Heated Shelter' | 'Unheated Shelter' | 'Unsheltered';
 
@@ -17,7 +18,7 @@ class RouteRetrieve {
     destinationCoor: [number, number] | number[],
     date?: string,
     time?: string,
-    travelMode?: string
+    travelMode?: TravelMode
   ): Promise<PlansResponse> {
     const origin = `geo/${originCoor[1]},${originCoor[0]}`;
     const destination = `geo/${destinationCoor[1]},${destinationCoor[0]}`;
