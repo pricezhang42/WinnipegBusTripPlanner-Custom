@@ -155,3 +155,12 @@ segments, as in the Transit API. Route badge colors identify legs and are not
 claimed to be official route colors. Each ride also shows historical departure timing and, when supported, a pass-up
 warning. These describe past observations rather than live predictions. See the
 [current reliability flow](docs/trip-reliability-implementation.md).
+
+### Hosted database QA and migrations
+
+The canonical Supabase migrations live in this repository. Hosted QA and
+production audit/status/migration commands, QA-only fixture tests and setup are
+in [hosted database management](docs/hosted-database-management.md).
+Start with the [production baseline audit](supabase/baseline/README.md).
+No local Supabase instance is required and no hosted project is created or
+modified just by installing/running the tool unit tests.

@@ -38,3 +38,8 @@ yarn-error.*
 android/key.properties
 android/app/build.gradle
 android/app/my-upload-key.keystore
+
+# Hosted database audit reports and QA credentials (never public artifacts).
+.database/
+supabase/.temp/
+supabase/.branches/
