@@ -11,6 +11,9 @@ type Props = {
   favoritesLoading?: boolean; favoritesError?: string; busy?: boolean;
   onFocus?: () => void; active: boolean; onClose: () => void; action: React.ReactNode;
 };
+// Geocoder features can share coordinates; their display identity differs from a saved favorite's key.
+const suggestionKey = (location: Location) => JSON.stringify([location.id, locationKey(location)]);
+
 export default function MapboxAutocomplete({ placeholder, value, onSelect, favorites, onToggleFavorite, favoritesLoading, favoritesError, busy, onFocus, active, onClose, action }: Props) {
   const [query, setQuery] = useState(value?.place_name ?? '');
   const [typed, setTyped] = useState(false);
@@ -37,7 +40,13 @@ export default function MapboxAutocomplete({ placeholder, value, onSelect, favor
     return () => { clearTimeout(timer); controller.abort(); };
   }, [query, typed, active]);
   const showFavorites = !typed || query.length === 0;
-  const items = showFavorites ? favorites : results;
+  const seen = new Set<string>();
+  const items = (showFavorites ? favorites : results).filter(item => {
+    const key = suggestionKey(item);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
   function select(item: Location) { onSelect(item); setQuery(item.place_name); setTyped(false); onClose(); Keyboard.dismiss(); }
   return <View style={styles.container}>
     <View style={styles.row}>
@@ -50,7 +59,7 @@ export default function MapboxAutocomplete({ placeholder, value, onSelect, favor
       <Text style={styles.heading}>{showFavorites ? 'Favorite locations' : 'Search results'}</Text>
       {(showFavorites ? favoritesLoading : loading) && <ActivityIndicator />}
       {!!(showFavorites ? favoritesError : error) && <Text style={styles.message}>{showFavorites ? favoritesError : error}</Text>}
-      {items.map(item => <View style={styles.row} key={locationKey(item)}>
+      {items.map(item => <View style={styles.row} key={suggestionKey(item)}>
         <Pressable accessibilityRole="button" accessibilityLabel={`Select ${item.place_name}`} style={styles.item} onPress={() => select(item)}><Text>{item.place_name}</Text></Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel={`${favorites.some(f => locationKey(f) === locationKey(item)) ? 'Remove' : 'Save'} favorite ${item.place_name}`} disabled={busy} onPress={() => onToggleFavorite(item)} style={styles.heart}>
           <FontAwesome name={favorites.some(f => locationKey(f) === locationKey(item)) ? 'heart' : 'heart-o'} color="#cc2446" size={23} />
