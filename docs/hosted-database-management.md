@@ -264,6 +264,10 @@ Current status/evidence: [production baseline review](../supabase/baseline/READM
 Raw audits and QA fixtures are intentionally ignored by Git. A baseline is not
 complete merely because tools exist or a migration appears in the ledger.
 
+An exact refresh preserving original production accounts and password hashes is
+tracked separately in [issue #23 and its implementation plan](exact-production-to-qa-copy.md).
+It is not supported by the synthetic seed command; no real data refresh has run.
+
 Primary references:
 - https://supabase.com/docs/guides/deployment/database-migrations
 - https://supabase.com/docs/guides/deployment/managing-environments
