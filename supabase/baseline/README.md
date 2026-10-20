@@ -2,9 +2,10 @@
 
 Tracking: https://github.com/pricezhang42/WinnipegBusTripPlanner-Custom/issues/21
 
-Status: **read-only SQL catalog audit completed October 20, 2026; baseline
-reconciliation and hosted QA verification pending**. No migration history has been marked applied and
-no production schema/data changes have been performed by the management tools.
+Status: **production SQL/Auth audit and initial hosted QA verification completed
+October 20, 2026; production baseline ledger reconciliation pending**. No production
+migration history has been marked applied and no production schema/data changes
+have been performed by the management tools. QA has its own recorded migrations.
 
 Verified TLS succeeded after configuring the locally downloaded production root
 certificate. The private report is `.database/production-audit-1792481066902.json`.
@@ -40,13 +41,48 @@ ownership/configuration and the related event trigger need platform review befor
 claiming full project parity. Platform extensions are pg_stat_statements 1.11,
 pgcrypto 1.3, plpgsql 1.0, supabase_vault 0.3.1 and uuid-ossp 1.1.
 
-Remaining: review/reconcile the manually applied baseline ledger explicitly,
-inventory hosted Auth/configuration, register/provision QA, replay migrations and
-run live QA tests. The SQL catalog review does not approve deployment or certify
-full hosted-project parity.
+Remaining: review/reconcile the production baseline ledger explicitly and review
+platform settings outside this audit's scope. The SQL catalog review does not
+approve deployment or certify full hosted-project parity.
 
-No `SUPABASE_ACCESS_TOKEN` is configured, so the Management API Auth inventory
-was not run. The database connection does not substitute for that permission.
+## Hosted QA verification
+
+Dedicated QA project: `dvxkygiqnvvghkmqxhvk`, PostgreSQL **17.11** (same major as
+production). It began without application tables or a migration ledger. All five
+migrations were applied successfully through the pinned Supabase CLI; the ledger
+now lists all five, with no pending/unknown versions and no application-contract
+findings. No production accounts/data were copied.
+
+QA audit: `.database/qa-audit-1792482663876.json`, SHA-256
+`35abf379a9c3e03f52c6b312f5a631fcaa6fbea74a0edcd2fad442305b4b9f92`.
+Verification report: `.database/qa-verification-11cb53a9-b564-402e-873c-a19426b5d38c.json`,
+SHA-256 `221a2129f53ebc4d39b1a3601b69ba52e870f0fe764f3b9314b32a0139f5a887`.
+QA catalog SHA-256:
+`b598f576cc2d70edd760c910717466c7c9aa2360afc69f82dbe62631d8c862ef`.
+Local promotion evidence expires after 24 hours and must be regenerated for later
+deployment; committed hashes are historical evidence, not deployment credentials.
+
+The backend ran separately on local port 18787 with QA URL/public key only. Live
+checks passed for favorites/deduplication, ownership forgery and cross-account RLS,
+history deletion, ten distinct trips, replanning order, and concurrent writes.
+Both generated accounts and their saved rows were removed successfully before the
+passing report was written. The temporary backend was stopped afterward.
+
+Production/QA catalog comparison differs only in `functions`/`functionGrants`:
+production retains the extra `rls_auto_enable` platform function and the app anon
+grants corrected in QA. Other exported catalog sections match. Full platform
+event-trigger/provider/SMTP/Storage/network parity is not established.
+
+Production Auth configuration was read through the Management API: site URL
+`http://localhost:3000`, callback `bustripplanner://auth/callback`, email signup and
+confirmation enabled, signup allowed, minimum password length 6. QA successfully
+received the versioned `qa-auth.json` settings: development site URL on port 8081,
+native/web callback and recovery allowlist, and minimum password length 8. These
+are documented QA-specific differences; production Auth was not modified.
+
+Initial creation and the live integration path are verified. The destructive
+remote-reset command, persistent manual seed workflow, populated-schema upgrades,
+and emulator email/recovery flows have not been exercised in this run.
 
 ## Repository inventory
 
