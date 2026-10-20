@@ -21,6 +21,11 @@ not an API key or your Supabase account password. Percent-encode special passwor
 characters. The hostname/role must identify the production reference registered
 in `supabase/environments.json`. Transaction-pooler port 6543 is rejected.
 
+`metro.config.js` also excludes database environment files, private reports,
+database tools/migrations and downloaded database certificates from the mobile
+resolver. Git ignores alone do not exclude files from Metro. Keep app public
+settings in `.env.local`, separate from the management credentials.
+
 The tools enforce verified TLS. If the system trust store does not trust the
 project certificate, open **Database → Settings → SSL Configuration → Download
 Certificate** in the production dashboard. Save the downloaded certificate locally,
