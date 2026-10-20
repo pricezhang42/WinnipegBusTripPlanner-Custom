@@ -94,6 +94,10 @@ npx tsc --noEmit
 ```
 
 The existing Map/nap-alarm TypeScript errors are unrelated to this migration.
+The existing StyledText test has no committed snapshot, so a full CI-mode Jest
+run fails that snapshot check. The other 15 suites (51 tests) pass in CI mode;
+the four focused saved-data suites contain 18 passing tests. No unrelated
+snapshot is added by this migration.
 Backend:
 
 ```sh
