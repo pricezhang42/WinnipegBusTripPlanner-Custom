@@ -54,6 +54,7 @@ export async function savedItemsRequest<T = void>(userId: string, path: string, 
       }
       if (!response.ok) {
         if (response.status === 401) throw signedOut();
+        if (response.status === 403) throw new Error('This saved item could not be deleted because access was denied. Please contact support.');
         if (response.status === 429) throw new Error('Too many saved-item requests. Please wait a moment and try again.');
         if (response.status === 400 || response.status === 413) throw new Error('This saved place or trip could not be accepted. Please check it and try again.');
         throw new Error('Saved places and trips are temporarily unavailable. Please try again.');

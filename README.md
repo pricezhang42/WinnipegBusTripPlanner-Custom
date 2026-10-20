@@ -105,7 +105,10 @@ trip: same origin and destination, with coordinates rounded to 4 decimals (about
 and a reversed trip counts as a different trip. Re-planning a trip moves it to the top
 with the new time; running the migration removes existing duplicates, keeping the
 latest. Also apply `supabase/migrations/202609260002_delete_trip_history.sql`
-to enable deletion of a user’s own history. Saved-data requests now go through
+to enable deletion of a user’s own history. If a history row survives deletion,
+`supabase/migrations/202610200001_restore_history_delete_policy.sql` can safely
+restore the DELETE grant and ownership policy; see the troubleshooting guide
+in [saved-data backend documentation](docs/saved-items-backend.md). Saved-data requests now go through
 the authenticated backend; configure and deploy its Supabase integration before
 releasing this app update. See [setup and API contract](docs/saved-items-backend.md).
 

@@ -93,6 +93,13 @@ test('network errors and server errors never replay mutations', async () => {
   expect(mockFetch).toHaveBeenCalledTimes(2);
 });
 
+test('history deletion permission errors are visible and never refresh or replay the mutation', async () => {
+  mockFetch.mockResolvedValue(response(403, { error: { code: 'history_delete_not_allowed' } }));
+  await expect(savedItemsRequest('user-a', '/trip-history/42', { method: 'DELETE' })).rejects.toThrow('access was denied');
+  expect(mockFetch).toHaveBeenCalledTimes(1);
+  expect(mockRefresh).not.toHaveBeenCalled();
+});
+
 test('timeouts abort requests without replay', async () => {
   jest.useFakeTimers();
   mockFetch.mockImplementation((_url, options) => new Promise((_resolve, reject) => {

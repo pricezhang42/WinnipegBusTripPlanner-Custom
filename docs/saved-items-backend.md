@@ -11,9 +11,9 @@ key, refresh token, database password, or client-supplied user ID is used.
 
 ## Setup and rollout
 
-1. Apply all three existing SQL migrations in `supabase/migrations/` in filename
-   order, including the history deletion migration. No new schema migration is
-   needed for this API migration.
+1. Apply the SQL migrations in `supabase/migrations/` in filename
+   order, including the history deletion migration. The repeatable `202610200001_restore_history_delete_policy.sql`
+   repairs a missing own-history DELETE grant/policy without changing rows.
 2. In WinnipegBusTripPlanner-Backend, set `SUPABASE_URL` and
    `SUPABASE_PUBLISHABLE_KEY` to the same project as the app. A legacy anon key
    works too; secret/service-role keys are rejected. Use Node 22 or newer.
@@ -49,7 +49,9 @@ All paths below start with `/api/me`; all require `Authorization: Bearer <access
 `Location` is `{id, place_name, geometry: {coordinates: [longitude, latitude]}}`.
 `SavedTrip` contains origin, destination, created_at, trip_key, and (for history)
 id. User IDs are excluded from list responses. Writes return 204, including
-repeated deletion of absent items. Favorite saves upsert existing keys. Names are
+repeated deletion of absent items. History deletion returns removed IDs internally;
+when none are returned, the backend checks whether the owned row is still visible.
+If it remains, it returns 403 rather than reporting success. Favorite saves upsert existing keys. Names are
 limited to 2048 characters, IDs to 512, and request bodies to 16 KiB. Coordinates
 must be finite and within longitude/latitude bounds. Unexpected top-level fields,
 including user_id, are rejected. Additional geocoder properties are stripped.
@@ -62,7 +64,7 @@ replanned trip to the top, and trims to 10 distinct trips atomically.
 queries, empty search_path and restricted execute grants remain essential.
 
 Failures return `{error: {code, message}}` for saved-data validation, auth, and
-service errors: 400 invalid input, 401 invalid/missing credentials, 413 oversized
+service errors: 400 invalid input, 401 invalid/missing credentials, 403 blocked history deletion, 413 oversized
 body, 503 authentication/database unavailable. The existing IP limiter allows
 120 requests/minute/instance and returns its standard 429 `{error, retryAfter}`
 response with Retry-After. Saved-data responses use Cache-Control: no-store.
@@ -124,3 +126,35 @@ This architecture routes the app through the backend but does not disable the
 Supabase Data API. Authenticated users can still call exposed tables/functions,
 subject to database policies, grants and constraints. It does not make backend
 validation a database-wide invariant or change the RLS boundary.
+
+
+## History entry remains after Delete
+
+A Supabase DELETE can affect zero rows without an error when no applicable RLS
+DELETE policy exists. Earlier backend code treated that response as success.
+The backend now verifies zero-row history deletes and reports
+`history_delete_not_allowed` (403) when the user's visible row survives.
+A missing DELETE grant (Postgres code 42501) is reported the same way. An absent
+or another user's ID still returns 204 without revealing its existence.
+
+Inspect the target project's metadata in the Supabase SQL Editor (read-only):
+
+```sql
+select
+  has_table_privilege('authenticated', 'public.trip_history', 'DELETE') as delete_granted,
+  (select jsonb_agg(jsonb_build_object('command', cmd, 'roles', roles, 'condition', qual))
+   from pg_policies
+   where schemaname = 'public' and tablename = 'trip_history') as policies;
+```
+
+The authenticated role needs DELETE permission and an applicable policy such as
+`delete_own_history` with `user_id = auth.uid()` for DELETE. Apply
+`supabase/migrations/202610200001_restore_history_delete_policy.sql` to repair
+those specific permissions. It can be rerun without deleting any history rows,
+uses the existing ownership rule, and does not disable RLS. Then retry deleting
+one chosen entry in the app and refresh the list. Deploy/restart the updated
+backend and reload the app for the improved error handling.
+
+The migration file is prepared in Git; creating it does not apply it to a hosted
+project. Inspecting or applying it requires database-admin access, not the
+publishable key used by the backend.
