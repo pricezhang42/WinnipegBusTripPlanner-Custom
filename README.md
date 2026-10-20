@@ -77,9 +77,8 @@ Without Supabase configuration, Account displays an unavailable message while
 trip planning continues to work. Native sessions use chunked Expo SecureStore;
 web sessions use browser localStorage. Passwords are never stored by the app.
 
-Authentication does not make the transit backend private. Before adding saved
-trips or other user data, enforce verified access tokens and per-user authorization
-on the backend (and RLS for any client-accessible Supabase tables).
+Trip planning and geocoding remain public. Saved-data endpoints require verified
+Supabase access tokens and retain database RLS. See [saved-data backend setup](docs/saved-items-backend.md).
 
 Manual verification with a configured project:
 - As a guest, open Search and Map, including with Supabase configuration absent.
@@ -105,8 +104,10 @@ retains the 10 most recent **distinct** trips. The second migration keeps one en
 trip: same origin and destination, with coordinates rounded to 4 decimals (about 10 m),
 and a reversed trip counts as a different trip. Re-planning a trip moves it to the top
 with the new time; running the migration removes existing duplicates, keeping the
-latest. The app also hides duplicates on its own until the migration is applied. No
-transit backend changes are needed.
+latest. Also apply `supabase/migrations/202609260002_delete_trip_history.sql`
+to enable deletion of a user’s own history. Saved-data requests now go through
+the authenticated backend; configure and deploy its Supabase integration before
+releasing this app update. See [setup and API contract](docs/saved-items-backend.md).
 
 - Tap either location field to see favorite locations. Typing hides favorites;
   normal geocoding starts at three characters. Clearing shows favorites again.
