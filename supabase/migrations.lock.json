@@ -18,5 +18,10 @@
     "version": "202610200001",
     "name": "202610200001_restore_history_delete_policy.sql",
     "sha256": "10478d037cc0daa47f6bdef83ef36449b47817744d2b80e97c20ca7a543be92d"
+  },
+  {
+    "version": "202610200002",
+    "name": "202610200002_restrict_application_function_access.sql",
+    "sha256": "453537ad87eb8b9ef72981c1dbe99ab72af3f24c05f13f314ea838318dabb923"
   }
 ]

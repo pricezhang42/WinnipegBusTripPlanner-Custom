@@ -2,16 +2,55 @@
 
 Tracking: https://github.com/pricezhang42/WinnipegBusTripPlanner-Custom/issues/21
 
-Status: **live audit pending**. No migration history has been marked applied and
+Status: **read-only SQL catalog audit completed October 20, 2026; baseline
+reconciliation and hosted QA verification pending**. No migration history has been marked applied and
 no production schema/data changes have been performed by the management tools.
 
-The first connection attempt on October 20, 2026 failed TLS certificate
-verification before any audit queries ran. The production root certificate must
-be configured through `PRODUCTION_DATABASE_CA_FILE` before retrying the audit.
+Verified TLS succeeded after configuring the locally downloaded production root
+certificate. The private report is `.database/production-audit-1792481066902.json`.
+Its SHA-256 is `5765158b3f06410222947493a61188087ada5baf15f75f8fb43d4962011586b0`;
+catalog SHA-256 is `41888739e068cd312537cba3b09efbe0ae02ba1f854e56ee3f47eed2237aee86`.
+Production runs PostgreSQL **17.6**. No application/Auth rows were read or copied.
+
+## Findings and migration evidence
+
+`supabase_migrations.schema_migrations` does **not** exist. The application tables
+already exist, so replaying the original CREATE TABLE migrations would fail.
+The deployment wrapper correctly blocks that case. No versions were marked applied.
+
+| Migration | Observed production state |
+| --- | --- |
+| `202609250001` | All three tables, required types/nullability/defaults, JSON object checks, primary/Auth foreign keys, recent-history index, RLS and ownership policies present; expected authenticated table grants present. The history function has since been replaced as expected by the next migration. |
+| `202609260001` | Non-null history `trip_key`, unique `(user_id, trip_key)`, helper signature/body and replacement history function signature/body match. Both functions use an empty search path; only `record_planned_trip` is SECURITY DEFINER. The catalog confirms final schema, not historical row cleanup or past execution. |
+| `202609260002` | Authenticated DELETE grant and `delete_own_history` ownership policy present. |
+| `202610200001` | Same deletion-repair effects present; the catalog cannot establish which of the two deletion scripts was actually run. |
+| `202610200002` | New, unapplied correction prepared after this audit: remove explicit anon/PUBLIC EXECUTE on the two app functions. |
+
+The two automatic findings are explicit **anon EXECUTE** grants on
+`record_planned_trip` and `trip_point_key`. PUBLIC is already revoked. Existing
+migrations revoke PUBLIC but do not revoke explicit anon privileges granted by
+the hosted default ACLs. The history function checks `auth.uid()` before writing;
+this finding alone is not evidence that anonymous callers can write history.
+The new migration removes the unnecessary access without altering platform-wide
+defaults. It has **not** been applied to production.
+
+No non-internal table triggers were found. Production also has a
+`public.rls_auto_enable()` event-trigger function outside the app migrations; its
+ownership/configuration and the related event trigger need platform review before
+claiming full project parity. Platform extensions are pg_stat_statements 1.11,
+pgcrypto 1.3, plpgsql 1.0, supabase_vault 0.3.1 and uuid-ossp 1.1.
+
+Remaining: review/reconcile the manually applied baseline ledger explicitly,
+inventory hosted Auth/configuration, register/provision QA, replay migrations and
+run live QA tests. The SQL catalog review does not approve deployment or certify
+full hosted-project parity.
+
+No `SUPABASE_ACCESS_TOKEN` is configured, so the Management API Auth inventory
+was not run. The database connection does not substitute for that permission.
 
 ## Repository inventory
 
-Four migrations define the application's three public tables, ownership policies,
+The original four migrations define the application's three public tables, ownership policies,
 grants, two SQL/PLpgSQL functions and distinct-trip history behavior. Their byte
 hashes are in `../migrations.lock.json`. Existing SQL files were historically
 applied manually in the Dashboard, so file presence is not proof of remote state.
@@ -23,9 +62,9 @@ The user supplied this production metadata on October 20, 2026:
 
 The repeatable permission repair is in migration
 `202610200001_restore_history_delete_policy.sql` (app PR #20). The user was given
-repair SQL, but its live application has not been confirmed. Do not mark that
-migration, or the original deletion migration, applied without checking the live
-policy and grant.
+repair SQL. The new audit now confirms the grant and ownership policy are present;
+it does not prove which deletion migration was executed. Ledger reconciliation
+must describe observed equivalent effects rather than invent execution history.
 
 ## Audit and review procedure
 

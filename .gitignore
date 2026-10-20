@@ -43,3 +43,5 @@ android/app/my-upload-key.keystore
 .database/
 supabase/.temp/
 supabase/.branches/
+# Locally downloaded database trust certificate.
+/prod-ca-2021.crt
