@@ -18,7 +18,7 @@ test('selectors reject duplicate, missing or invalid profile names', () => {
 test('profile files are parsed as data and process environment wins', async () => {
   const root = await mkdtemp(join(tmpdir(), 'connections-'));
   try {
-    await writeFile(join(root, '.env.connections.local'), 'QA1_API_URL="https://file.example"\nLITERAL="$(touch not-executed)"\n');
+    await writeFile(join(root, '.env.local'), 'QA1_API_URL="https://file.example"\nLITERAL="$(touch not-executed)"\n');
     const result = await localSettings(pathToFileURL(root + '/'), { QA1_API_URL:'https://process.example' });
     assert.equal(result.QA1_API_URL, 'https://process.example');
     assert.equal(result.LITERAL, '$(touch not-executed)');
@@ -62,14 +62,34 @@ test('guest profile is explicit and incomplete/unknown selections never fall bac
   for (const args of [['start','--api','local'], ['start','--api','typo','--auth','qa1'], ['start','--api','local','--auth','qa9']]) {
     assert.throws(() => appPlan(args,settings,{}));
   }
-  assert.equal(appPlan(['web'],settings,{PATH:'test'}).env.PATH,'test');
+  assert.throws(() => appPlan(['web'],settings,{PATH:'test'}), /DEFAULT_API/);
   assert.equal(appPlan(['export','--api','local','--auth','qa1','--print'],settings,{}).print, true);
 });
 test('Metro excludes profile files, retained private artifacts and Node tools', () => {
   const require = createRequire(import.meta.url);
   const config = require('../metro.config.js');
   const blocked = name => config.resolver.blockList.some(pattern => pattern.test(fileURLToPath(new URL('../'+name,import.meta.url))));
-  for (const name of ['.env.connections.local','.env.connections.example','.env.database.local','.database/qa.dump',
+  for (const name of ['.env.local','.env.example','.env.database.local','.database/qa.dump',
     'scripts/run.mjs','scripts/connections.mjs','prod-ca-2021.crt','supabase/.temp/config']) assert.equal(blocked(name), true, name);
-  for (const name of ['lib/supabase.ts','.env.local','app/(tabs)/index.tsx']) assert.equal(blocked(name),false,name);
+  for (const name of ['lib/supabase.ts','app/(tabs)/index.tsx']) assert.equal(blocked(name),false,name);
+});
+
+test('defaults and explicit overrides select API and Auth independently', () => {
+  const configured = {...settings,DEFAULT_API:'local',DEFAULT_AUTH:'qa1'};
+  assert.equal(appPlan(['android'],configured,{}).env.EXPO_PUBLIC_SUPABASE_URL,base(qa1));
+  const apiOverride=appPlan(['android','--api','production'],configured,{});
+  assert.equal(apiOverride.env.EXPO_PUBLIC_BACKEND_URL,'https://prod.example');
+  assert.equal(apiOverride.env.EXPO_PUBLIC_SUPABASE_URL,base(qa1));
+  assert.equal(appPlan(['android','--auth','qa2'],configured,{}).env.EXPO_PUBLIC_SUPABASE_URL,base(qa2));
+});
+
+test('only .env.local is read; legacy files cannot override it', async () => {
+  const dir=await mkdtemp(join(tmpdir(),'sole-env-'));
+  try {
+    await writeFile(join(dir,'.env'),'LEGACY_ONLY=old\nQA1_API_URL=https://old.example\n');
+    await writeFile(join(dir,'.env.connections.local'),'LEGACY_PROFILE=old\n');
+    await writeFile(join(dir,'.env.local'),'QA1_API_URL=https://chosen.example\n');
+    const loaded=await localSettings(pathToFileURL(dir+'/'),{});
+    assert.deepEqual(loaded,{QA1_API_URL:'https://chosen.example'});
+  } finally {await rm(dir,{recursive:true});}
 });

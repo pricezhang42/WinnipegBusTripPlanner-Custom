@@ -5,7 +5,7 @@ on:
       - 'scripts/**'
       - 'metro.config.js'
       - 'package*.json'
-      - '.env.connections.example'
+      - '.env.example'
       - '.github/workflows/connections.yml'
   push:
     branches: [main]
@@ -13,7 +13,7 @@ on:
       - 'scripts/**'
       - 'metro.config.js'
       - 'package*.json'
-      - '.env.connections.example'
+      - '.env.example'
       - '.github/workflows/connections.yml'
 permissions:
   contents: read

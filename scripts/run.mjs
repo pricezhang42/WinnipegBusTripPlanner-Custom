@@ -10,20 +10,19 @@ export function appPlan(args, settings, inherited = process.env) {
   const { selected, rest } = selection(flags, ['api', 'auth']);
   const print = rest.includes('--print');
   const extra = rest.filter(flag => flag !== '--print');
-  let env = { ...inherited }, summary = { mode: 'existing Expo environment' };
-  if (Object.keys(selected).length) {
-    if (!selected.api || !selected.auth) throw new Error('Select both --api <profile> and --auth <profile|none>; the choices are independent.');
-    env = { ...cleanEnvironment(inherited), EXPO_NO_DOTENV: '1',
-      EXPO_PUBLIC_BACKEND_URL: connectionUrl(value(settings, selected.api, 'API_URL'), 'API'),
-      EXPO_PUBLIC_SUPABASE_URL: '', EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: '' };
-    if (selected.auth !== 'none') {
-      const auth = publicSupabase(value(settings, selected.auth, 'SUPABASE_URL'), value(settings, selected.auth, 'SUPABASE_PUBLISHABLE_KEY'));
-      env.EXPO_PUBLIC_SUPABASE_URL = auth.url;
-      env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY = auth.key;
-    }
-    summary = { api: selected.api, backendUrl: env.EXPO_PUBLIC_BACKEND_URL, auth: selected.auth,
-      authUrl: env.EXPO_PUBLIC_SUPABASE_URL || null };
+  selected.api ??= settings.DEFAULT_API;
+  selected.auth ??= settings.DEFAULT_AUTH;
+  if (!selected.api || !selected.auth) throw new Error('Set DEFAULT_API and DEFAULT_AUTH in .env.local or pass --api and --auth.');
+  const env = { ...cleanEnvironment(inherited), EXPO_NO_DOTENV: '1',
+    EXPO_PUBLIC_BACKEND_URL: connectionUrl(value(settings, selected.api, 'API_URL'), 'API'),
+    EXPO_PUBLIC_SUPABASE_URL: '', EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: '' };
+  if (selected.auth !== 'none') {
+    const auth = publicSupabase(value(settings, selected.auth, 'SUPABASE_URL'), value(settings, selected.auth, 'SUPABASE_PUBLISHABLE_KEY'));
+    env.EXPO_PUBLIC_SUPABASE_URL = auth.url;
+    env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY = auth.key;
   }
+  const summary = { api: selected.api, backendUrl: env.EXPO_PUBLIC_BACKEND_URL, auth: selected.auth,
+    authUrl: env.EXPO_PUBLIC_SUPABASE_URL || null };
   return { command: fileURLToPath(new URL('../node_modules/.bin/expo', import.meta.url)),
     args: [...commands[command], ...extra], env, summary, print };
 }
