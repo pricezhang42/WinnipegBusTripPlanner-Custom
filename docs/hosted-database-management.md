@@ -265,8 +265,11 @@ Raw audits and QA fixtures are intentionally ignored by Git. A baseline is not
 complete merely because tools exist or a migration appears in the ledger.
 
 An exact refresh preserving original production accounts and password hashes is
-tracked separately in [issue #23 and its implementation plan](exact-production-to-qa-copy.md).
-It is not supported by the synthetic seed command; no real data refresh has run.
+tracked separately in [issue #23 and its operator runbook](exact-production-to-qa-copy.md).
+`npm run db:refresh:qa` is a metadata-only preview by default. The explicit apply
+path is separate from synthetic seeding; no real data refresh has run. Native
+PostgreSQL clients are configured locally and a disposable native rehearsal has
+passed. Review the supported Auth feature scope and acknowledgements before use.
 
 Primary references:
 - https://supabase.com/docs/guides/deployment/database-migrations

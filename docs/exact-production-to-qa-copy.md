@@ -3,10 +3,19 @@
 Tracking: [issue #23](https://github.com/pricezhang42/WinnipegBusTripPlanner-Custom/issues/23).
 Depends on [PR #22](https://github.com/pricezhang42/WinnipegBusTripPlanner-Custom/pull/22).
 
-Status: **implementation plan only**. No copy command is implemented by this
-document. No production data has been exported and no QA users/data have been
-replaced. The current `db:seed:qa` command creates synthetic fixtures; it cannot
-perform this refresh.
+Status: **runner implemented; native archive/restore fixture rehearsal passed**.
+The metadata preview, hosted QA temporary-fixture SQL checks and a native
+archive/repeat/failure/recovery rehearsal on disposable QA schemas have run. No
+production data has been exported and no real QA users/data have been replaced.
+`db:seed:qa` remains a separate synthetic-fixture workflow.
+
+The first runner supports PostgreSQL 17, matching managed Auth versions, the
+three app tables and all Auth table data with email/password accounts. Populated
+MFA factors, SSO/OAuth/passkey/SCIM feature tables, phone/non-email identities,
+encrypted material, nonempty legacy Auth instance configuration, Storage/Vault
+or scheduled/external-operation data stop the
+apply path before replacement. It never silently removes unsupported records to
+claim success. This is not a complete Supabase platform clone.
 
 ## Outcome and boundary
 
@@ -47,21 +56,114 @@ are separate requirements. Copying refresh/session records and encrypted Auth
 state requires explicit review; it must not be assumed safe or functional just
 because a table restore succeeded.
 
-## Proposed operator interface
+## Operator commands
 
-These commands describe the intended implementation; **they do not exist yet**:
+Run in the app repository. Native PostgreSQL 17 clients (`pg_dump`, `pg_restore`,
+`psql`) are required; no local database or Supabase instance is started. They
+were installed on this Mac and configured in ignored `.env.database.local`
+during implementation. On another machine, install them if absent:
+
+```sh
+brew install libpq@17
+```
+
+Set `DATABASE_PG_BIN` in ignored `.env.database.local` to the `bin` directory
+under `brew --prefix libpq@17` (normally `/opt/homebrew/opt/libpq@17/bin` on Apple
+Silicon). The [Homebrew formula](https://formulae.brew.sh/formula/libpq%4017)
+provides these clients. Other operating systems can install PostgreSQL 17 clients
+on PATH. Existing production/QA connection URLs and certificate paths are reused.
 
 ```sh
 # Metadata/preflight plan; no export or destination writes.
 npm run db:refresh:qa
 
-# Create protected source and recovery artifacts and replace QA only.
+# Only after reviewing the preview and rehearsing backup/restore:
+# stop QA app/Auth traffic and all QA seed/test/migration jobs first.
 npm run db:refresh:qa -- \
   --apply \
   --confirm-source rshgohxdntjglnqilyls \
   --confirm-ref dvxkygiqnvvghkmqxhvk \
-  --replace-qa-data
+  --replace-qa-data \
+  --qa-quiesced \
+  --copy-auth-state
 ```
+
+`--qa-quiesced` is an operator acknowledgement, not an API traffic switch. The
+runner cannot pause Supabase's hosted Auth service. Refresh/recovery processes
+coordinate through a QA session advisory lock; ordinary app traffic and existing
+seed/test/migration commands do not take that lock and must be stopped manually.
+`--copy-auth-state` explicitly acknowledges copying original sessions, refresh
+and one-time-token data as part of the exact Auth data set. These artifacts must
+receive the same restricted access as production. QA keeps its own signing keys.
+
+The selected relation-size bound is 256 MiB (including indexes); larger datasets
+stop before export. Native processes have a 180-second timeout. The schema and
+old QA row/sequence state are rechecked under exclusive table locks before
+`TRUNCATE ... RESTRICT`. Foreign keys remain enabled: archive table data is ordered
+parent-before-child. Cycles, custom table triggers or foreign keys crossing the
+copy boundary are blockers. No privileged trigger disabling is attempted.
+
+Temporary-fixture SQL check (no real Auth/app data read or replaced):
+
+```sh
+npm run db:refresh:sql:test:qa
+```
+
+Full native fixture rehearsal (creates uniquely named disposable QA schemas
+with synthetic bcrypt hashes and saved rows, then removes them and its files):
+
+```sh
+npm run db:refresh:rehearse:qa
+```
+
+The native rehearsal uses source/destination fixture schemas in QA, with a
+test-only mapping to the logical Auth/app names. It exercises real archives,
+TOC ordering, COPY, verification, repeats, failed-transaction behavior and
+explicit recovery. It does not exercise Supabase Auth login or replace real
+managed Auth rows. Its schema cleanup is restricted to its generated UUID names.
+
+After a successful real refresh, sign in to QA locally with an original account's
+password, then start the QA backend and run `db:test:qa`. The refresh command
+does not issue passing promotion evidence or claim that original-password login
+was tested merely because a password hash was copied.
+
+## Recovery and artifact cleanup
+
+Each apply prints a UUID identifying `.database/refresh-UUID/`. The directory
+contains `status.json`, a protected manifest, source/QA archives, rendered data
+SQL and verification material. Runtime `.pgpass` files are removed on normal
+completion/failure; after an OS/process crash, treat any surviving passfiles as
+secrets and remove them after review.
+
+If the status is `needs-recovery-review`, keep QA offline. Table restore runs in
+one `psql --single-transaction` operation, but PostgreSQL `setval` is **not
+transactional** and a dropped connection can leave commit outcome uncertain.
+There is no automatic assumption that rollback restored everything. Explicitly
+recover the previous QA rows and sequence state from that run:
+
+```sh
+npm run db:refresh:qa -- \
+  --recover RUN_UUID \
+  --apply --confirm-ref dvxkygiqnvvghkmqxhvk \
+  --replace-qa-data --qa-quiesced --copy-auth-state
+```
+
+Recovery connects only to registered QA, verifies backup checksums/private file
+permissions and requires unchanged schema/ledger. It restores and verifies old
+rows/sequences without changing migration history. A changed schema or broken
+backup requires manual recovery review, not a force flag.
+
+Review login/API results and choose the backup retention window. When that
+window closes, explicitly remove one completed/recovered run's private exports:
+
+```sh
+npm run db:refresh:qa -- --cleanup RUN_UUID \
+  --apply --confirm-ref dvxkygiqnvvghkmqxhvk
+```
+
+Cleanup makes no database connection and rejects an active/uncertain run or
+symlinked artifacts. Failed runs before replacement may also be cleaned up. No
+automatic cleanup deletes a backup still needed for recovery.
 
 The default preview lists references, schema compatibility, selected tables,
 dependencies, required tools and unresolved blockers. It must not print rows,
@@ -83,13 +185,16 @@ no generic `--force`, linked-project fallback or production reset path.
    Detect unreviewed foreign keys outside the selected tables. Refuse an
    unsupported combination before changing QA. PostgreSQL 17.6/17.11 major
    compatibility alone does not prove Auth service compatibility.
-2. **Choose the supported restore mechanism.** Use the
+2. **Native logical restore.** The implementation uses
+   `pg_dump --format=custom --data-only` with an exported read-only snapshot,
+   `pg_restore` with an allowlisted/reordered table-data TOC and `psql` with
+   `ON_ERROR_STOP` in a single destination transaction. The
    [Supabase logical backup/restore workflow](https://supabase.com/docs/guides/platform/migrating-within-supabase/backup-restore)
-   as the reference. Native PostgreSQL tools or disposable tool containers are
-   acceptable; no local Supabase database instance is required. Verify the pinned
-   CLI's actual inclusion/exclusion behavior, especially Auth data, before use.
-   Use PostgreSQL tools compatible with both servers. Do not invent a partial
-   JavaScript copy of managed Auth tables.
+   is the reference for data-only migration. Auth tables are selected explicitly;
+   this avoids relying on implicit CLI managed-schema exclusions. Auth service
+   bookkeeping and the application migration ledger are not in the dump. Native
+   tools preserve original COPY values; JavaScript does not decode/re-encode
+   user/password rows.
 3. **Prepare recovery.** Stop QA app/backend access and concurrent seed/test/
    migration jobs; establish a single refresh lock. Take a protected, validated
    QA backup and record its schema/ledger versions. A backup is not proven
@@ -148,7 +253,7 @@ webhooks, queues and integrations can have external effects. Keep such services
 disabled or pointed at QA before exposing restored data. Do not reset passwords
 or trigger real-user emails as an automated validation shortcut.
 
-## Rehearsal and acceptance evidence
+## Rehearsal and remaining acceptance evidence
 
 Before a real refresh, exercise the runner on disposable hosted source/target
 fixtures containing password users, identities, favorites/history, high identity
@@ -163,6 +268,25 @@ values and existing target data. Verify:
   orphaned ownership or sequence collisions, while retaining QA schema/ledger.
 - QA original-password login works; source tokens/keys are not used as QA login.
 - Original cloned users survive the existing temporary-account test cleanup.
+
+Completed during this PR: 34 offline tool tests, including
+guards/orchestration/recovery-failure tests;
+read-only metadata preview against the registered production and QA projects;
+SQL verification on transaction-local QA fixtures, including password-hash
+mismatch, FK enforcement, microsecond timestamps and IDs above JavaScript's
+safe integer range. Those fixture objects were rolled back. A real native
+PostgreSQL 17.11 archive/restore rehearsal also passed on disposable hosted QA
+fixtures: original bcrypt hashes and row values, parent-before-child COPY,
+repeat refresh, failed table transaction with nontransactional sequence effects,
+and explicit restoration of previous rows/sequences. The fixtures and rehearsal
+artifacts were removed afterward. Read-only preview now reports all client tools
+available and no structural blockers for the registered projects.
+
+Pending: operator review and explicit execution of a real production export/QA
+replacement, data-dependent feature/encryption checks for that source snapshot,
+and login against real restored managed Auth accounts. No original user's
+password has been requested or tested. These remain separate from passing
+synthetic-fixture checks; PR #24 does not claim a real copy has happened.
 
 Offline CI tests validate guards, artifact handling, planning and failure paths.
 CI must not receive production rows, password hashes or credentials. Live rehearsal
