@@ -39,7 +39,7 @@ Web prototype version: https://github.com/pricezhang42/Commute-Compass-Vercel
 - **App (this repo)** — Expo / React Native client. No upstream API keys are bundled with the app; all third-party calls are proxied by the backend.
 - **Backend ([BusTripPlanner-backend](../BusTripPlanner-backend))** — Node + Hono service that holds the Mapbox and Winnipeg Transit credentials, batches the trip-planner + shelter-feature calls, and serves GTFS-based polylines.
 
-Choose separate API/Auth profiles using [connection selection](docs/connections.md). The existing `.env.local` setup with `EXPO_PUBLIC_BACKEND_URL` also remains supported. Defaults target `http://10.0.2.2:8787` on Android emulators and `http://localhost:8787` elsewhere.
+Choose separate API/Auth profiles using [connection selection](docs/connections.md). All public connection blocks and independent defaults live in `.env.local`; `.env.example` is the only template.
 
 The only credential still on the client is the **Google Maps Android API key** in [app.json](app.json), used by the native Google Maps SDK. Restrict it in the Google Cloud Console to the app's package name (`com.anonymous.BusTripPlanner`) + release signing SHA-1, and limit it to the **Maps SDK for Android** API.
 
@@ -54,8 +54,8 @@ signup, sign-in, sign-out, email confirmation, and password recovery.
 
 1. Create a Supabase project. In Authentication → Providers, enable Email and
    email confirmation. Set the minimum password length to at least 8.
-2. Copy `.env.example` to `.env.local`. Set `EXPO_PUBLIC_SUPABASE_URL` and
-   `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` to the project URL and publishable key
+2. Copy `.env.example` to `.env.local`. Set `QA1_SUPABASE_URL` and
+   `QA1_SUPABASE_PUBLISHABLE_KEY` to the project URL and publishable key
    (a legacy anon key also works). Never put a secret/service-role key in the app.
 3. In Authentication → URL Configuration, allow both exact redirects:
    - `bustripplanner://auth/callback`
@@ -68,7 +68,7 @@ signup, sign-in, sign-out, email confirmation, and password recovery.
    Supabase's default mail service restricts recipients and sending volume.
 5. Run `npm ci` and `npm run android`. SecureStore is a new native dependency,
    so rebuild an existing development client once. After environment changes,
-   restart Metro with `npx expo start --dev-client --clear`.
+   restart Metro with `npm run start -- --dev-client --clear`.
 
 Email links use PKCE: open them on the same device/browser that requested them.
 On an emulator, open the email link inside the emulator browser. An expired,
