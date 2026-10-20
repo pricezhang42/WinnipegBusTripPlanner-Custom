@@ -40,4 +40,4 @@ as a configuration choice but returns an authentication error for favorites and
 history; it does not map users between projects. Public trip searches still work.
 
 Database operations and backend server/database selection are documented in the
-[backend repository](https://github.com/pricezhang42/WinnipegBusTripPlanner-Backend/blob/codex/database-connection-profiles/docs/connections.md).
+[backend repository](https://github.com/pricezhang42/WinnipegBusTripPlanner-Backend/blob/main/docs/connections.md).

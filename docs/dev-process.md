@@ -1,4 +1,4 @@
-Run database commands from `/Users/linpu/workplace/WinnipegBusTripPlanner-Backend`. See the [backend database guide](https://github.com/pricezhang42/WinnipegBusTripPlanner-Backend/blob/codex/database-connection-profiles/docs/hosted-database-management.md) and [independent app connections](connections.md).
+Run database commands from `/Users/linpu/workplace/WinnipegBusTripPlanner-Backend`. See the [backend database guide](https://github.com/pricezhang42/WinnipegBusTripPlanner-Backend/blob/main/docs/hosted-database-management.md) and [independent app connections](connections.md).
 
 Use this flow: **write a SQL migration → apply it to QA → test → review the PR → apply the same migration to production.** Deployment is manual; merging a PR does not update either database.
 
