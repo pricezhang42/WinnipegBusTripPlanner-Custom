@@ -1,89 +1,71 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/providers/AuthProvider';
-import { latestPerTrip, locationKey, tripKey, type Location, type Trip, type SavedTrip } from '@/lib/savedTrips';
-import { parseSavedItems, savedItemsRequest, type SavedItems } from '@/lib/savedItemsApi';
+import { isLocation, latestPerTrip, locationKey, tripKey, Location, Trip, SavedTrip } from '@/lib/savedTrips';
 
-const empty: SavedItems = { locations: [], favorites: [], history: [] };
-
+type Lists = { locations: Location[]; favorites: SavedTrip[]; history: SavedTrip[] };
+const empty: Lists = { locations: [], favorites: [], history: [] };
 export function useSavedTrips() {
   const { session } = useAuth();
   const uid = session?.user.id;
-  // An epoch also rejects A → signed out → A responses from the earlier session.
-  const identity = useRef({ uid, epoch: 0 });
-  if (identity.current.uid !== uid) identity.current = { uid, epoch: identity.current.epoch + 1 };
-  const epoch = identity.current.epoch;
-  const mounted = useRef(true);
+  const current = useRef(uid); current.current = uid;
   const generation = useRef(0);
-  const reads = useRef(new Set<AbortController>());
-  const mutation = useRef<symbol | null>(null);
-  const [state, setState] = useState<{ epoch: number; lists: SavedItems }>({ epoch, lists: empty });
+  const mutation = useRef(false);
+  const [state, setState] = useState<{ uid?: string; lists: Lists }>({ lists: empty });
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-
-  const isCurrent = useCallback(() => mounted.current && identity.current.epoch === epoch && identity.current.uid === uid, [epoch, uid]);
   const refresh = useCallback(async () => {
-    if (!isCurrent()) return;
     const version = ++generation.current;
-    if (!uid) { setState({ epoch, lists: empty }); setError(''); setLoading(false); return; }
-    const controller = new AbortController();
-    reads.current.add(controller);
+    if (!uid || !supabase) { setState({ lists: empty }); setError(''); setLoading(false); return; }
     setLoading(true); setError('');
     try {
-      const result = await savedItemsRequest<unknown>(uid, '/saved-items', { signal: controller.signal }, isCurrent);
-      const lists = parseSavedItems(result);
-      if (isCurrent() && generation.current === version) {
-        setState({ epoch, lists: { ...lists, history: latestPerTrip(lists.history) } });
-      }
-    } catch (failure) {
-      if (isCurrent() && generation.current === version) setError(failure instanceof Error ? failure.message : 'Unable to load saved items.');
-    } finally {
-      reads.current.delete(controller);
-      if (isCurrent() && generation.current === version) setLoading(false);
-    }
-  }, [uid, epoch, isCurrent]);
-
-  useEffect(() => {
-    mounted.current = true;
-    mutation.current = null; setBusy(false);
-    void refresh();
-    return () => {
-      mounted.current = false;
-      generation.current++;
-      reads.current.forEach(controller => controller.abort());
-      reads.current.clear();
-    };
-  }, [refresh]);
-
-  const lists = state.epoch === epoch ? state.lists : empty;
-  async function write(path: string, method: 'POST' | 'DELETE', body?: unknown) {
-    if (!uid || !isCurrent()) throw new Error('Please sign in to save places and trips.');
+      const [locations, favorites, history] = await Promise.all([
+        supabase.from('favorite_locations').select('location').eq('user_id', uid).order('created_at', { ascending: false }),
+        supabase.from('favorite_trips').select('*').eq('user_id', uid).order('created_at', { ascending: false }),
+        supabase.from('trip_history').select('*').eq('user_id', uid).order('created_at', { ascending: false }).order('id', { ascending: false }).limit(10),
+      ]);
+      if (locations.error || favorites.error || history.error) throw new Error('Unable to load your saved places and trips. Please try again.');
+      if (current.current === uid && generation.current === version) setState({ uid, lists: {
+        locations: (locations.data ?? []).map(row => row.location).filter(isLocation),
+        favorites: (favorites.data ?? []).filter(row => isLocation(row.origin) && isLocation(row.destination)),
+        // The database keeps one row per trip; this also hides duplicates saved before that migration.
+        history: latestPerTrip((history.data ?? []).filter(row => isLocation(row.origin) && isLocation(row.destination))),
+      } });
+    } catch (failure) { if (current.current === uid && generation.current === version) setError(failure instanceof Error ? failure.message : 'Unable to load saved items.'); }
+    finally { if (current.current === uid && generation.current === version) setLoading(false); }
+  }, [uid]);
+  useEffect(() => { refresh(); return () => { generation.current++; }; }, [refresh]);
+  const lists = state.uid === uid ? state.lists : empty;
+  async function write(operation: () => PromiseLike<{ error: unknown }>) {
+    if (!uid || !supabase || current.current !== uid) throw new Error('Please sign in to save places and trips.');
     if (mutation.current) throw new Error('Please wait for the previous save to finish.');
-    const operation = Symbol();
-    mutation.current = operation; setBusy(true);
-    generation.current++;
+    mutation.current = true; setBusy(true);
     try {
-      await savedItemsRequest(uid, path, { method, body }, isCurrent);
-      if (isCurrent()) await refresh();
-    } finally {
-      if (isCurrent() && mutation.current === operation) { mutation.current = null; setBusy(false); setLoading(false); }
-    }
+      const { error } = await operation();
+      if (error) throw new Error('Could not save your changes. Please check your connection and try again.');
+      if (current.current === uid) await refresh();
+    } finally { mutation.current = false; setBusy(false); }
   }
-  const removeLocation = (location: Location) => write(`/favorite-locations/${encodeURIComponent(locationKey(location))}`, 'DELETE');
   return { ...lists, loading, busy, error: uid ? error : '', refresh,
-    removeLocation,
+    removeLocation: (location: Location) => write(() => supabase!.from('favorite_locations').delete().eq('user_id', uid!).eq('location_key', locationKey(location))),
     removeHistory: (trip: SavedTrip) => {
-      if (!Number.isSafeInteger(trip.id) || trip.id! <= 0) return Promise.reject(new Error('This history entry could not be identified. Refresh and try again.'));
-      return write(`/trip-history/${trip.id}`, 'DELETE');
+      if (trip.id == null) return Promise.reject(new Error('This history entry could not be identified. Refresh and try again.'));
+      return write(() => supabase!.from('trip_history').delete().eq('user_id', uid!).eq('id', trip.id!));
     },
-    toggleLocation: (location: Location) => lists.locations.some(item => locationKey(item) === locationKey(location))
-      ? removeLocation(location) : write('/favorite-locations', 'POST', { location }),
-    saveTrip: (trip: Trip) => write('/favorite-trips', 'POST', trip),
-    removeTrip: (trip: Trip) => write(`/favorite-trips/${encodeURIComponent(tripKey(trip))}`, 'DELETE'),
+    toggleLocation: (location: Location) => {
+      const key = locationKey(location);
+      return write(() => lists.locations.some(item => locationKey(item) === key)
+        ? supabase!.from('favorite_locations').delete().eq('user_id', uid!).eq('location_key', key)
+        : supabase!.from('favorite_locations').upsert({ user_id: uid, location_key: key, location }, { onConflict: 'user_id,location_key' }));
+    },
+    saveTrip: (trip: Trip) => write(() => supabase!.from('favorite_trips').upsert({ user_id: uid, trip_key: tripKey(trip), ...trip }, { onConflict: 'user_id,trip_key' })),
+    removeTrip: (trip: Trip) => write(() => supabase!.from('favorite_trips').delete().eq('user_id', uid!).eq('trip_key', tripKey(trip))),
     recordTrip: async (trip: Trip) => {
-      if (!uid || !isCurrent()) return;
-      try { await write('/trip-history', 'POST', trip); }
-      catch { throw new Error('Trip found, but history could not be saved. Please check your connection and try again.'); }
+      if (!uid || !supabase || current.current !== uid) return;
+      const { error } = await supabase.rpc('record_planned_trip', { p_origin: trip.origin, p_destination: trip.destination });
+      if (error) throw new Error('Trip found, but history could not be saved. Please check your connection.');
+      if (current.current === uid) await refresh();
     },
   };
 }
