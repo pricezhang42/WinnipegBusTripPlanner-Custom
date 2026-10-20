@@ -1,0 +1,35 @@
+name: App connection profiles
+on:
+  pull_request:
+    paths:
+      - 'scripts/**'
+      - 'metro.config.js'
+      - 'package*.json'
+      - '.env.connections.example'
+      - '.github/workflows/connections.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/**'
+      - 'metro.config.js'
+      - 'package*.json'
+      - '.env.connections.example'
+      - '.github/workflows/connections.yml'
+permissions:
+  contents: read
+jobs:
+  connections:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run connections:test
+      - run: npm run export -- --api ci --auth ci --platform android --output-dir dist/ci
+        env:
+          CI_API_URL: https://api.example.com
+          CI_SUPABASE_URL: https://abcdefghijklmnopqrst.supabase.co
+          CI_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
