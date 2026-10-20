@@ -1,4 +1,8 @@
 {
-  "production": { "projectRef": "rshgohxdntjglnqilyls" },
-  "qa": { "projectRef": null }
+  "production": {
+    "projectRef": "rshgohxdntjglnqilyls"
+  },
+  "qa": {
+    "projectRef": "dvxkygiqnvvghkmqxhvk"
+  }
 }
