@@ -4,11 +4,13 @@
   "license": "0BSD",
   "version": "1.0.0",
   "scripts": {
-    "start": "expo start",
-    "android": "expo run:android",
-    "ios": "expo run:ios",
-    "web": "expo start --web",
-    "test": "jest --watchAll"
+    "start": "node scripts/run.mjs start",
+    "android": "node scripts/run.mjs android",
+    "ios": "node scripts/run.mjs ios",
+    "web": "node scripts/run.mjs web",
+    "test": "jest --watchAll",
+    "export": "node scripts/run.mjs export",
+    "connections:test": "node --test scripts/connections.test.mjs"
   },
   "jest": {
     "preset": "jest-expo"
@@ -55,5 +57,8 @@
     "react-test-renderer": "19.0.0",
     "typescript": "~5.8.3"
   },
-  "private": true
+  "private": true,
+  "engines": {
+    "node": ">=22"
+  }
 }

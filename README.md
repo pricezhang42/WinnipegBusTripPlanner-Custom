@@ -39,7 +39,7 @@ Web prototype version: https://github.com/pricezhang42/Commute-Compass-Vercel
 - **App (this repo)** — Expo / React Native client. No upstream API keys are bundled with the app; all third-party calls are proxied by the backend.
 - **Backend ([BusTripPlanner-backend](../BusTripPlanner-backend))** — Node + Hono service that holds the Mapbox and Winnipeg Transit credentials, batches the trip-planner + shelter-feature calls, and serves GTFS-based polylines.
 
-Point the client at a backend by setting `EXPO_PUBLIC_BACKEND_URL` at build time, or edit the default in [constants/Backend.ts](constants/Backend.ts). Defaults target `http://10.0.2.2:8787` on Android emulators and `http://localhost:8787` elsewhere.
+Choose separate API/Auth profiles using [connection selection](docs/connections.md). The existing `.env.local` setup with `EXPO_PUBLIC_BACKEND_URL` also remains supported. Defaults target `http://10.0.2.2:8787` on Android emulators and `http://localhost:8787` elsewhere.
 
 The only credential still on the client is the **Google Maps Android API key** in [app.json](app.json), used by the native Google Maps SDK. Restrict it in the Google Cloud Console to the app's package name (`com.anonymous.BusTripPlanner`) + release signing SHA-1, and limit it to the **Maps SDK for Android** API.
 
@@ -94,23 +94,11 @@ and [mobile email links](https://supabase.com/docs/guides/auth/native-mobile-dee
 
 ### Favorite locations, favorite trips, and history
 
-Run `supabase/migrations/202609250001_saved_places_and_trips.sql` once in your
-Supabase project's SQL Editor before using saved items, then run
-`supabase/migrations/202609260001_dedupe_trip_history.sql` once as well. The public client key
-cannot create tables or apply migrations. This creates three tables with row
-level security and a signed-in-only `record_planned_trip` function. The function
-uses the authenticated user's ID, serializes concurrent history writes, and
-retains the 10 most recent **distinct** trips. The second migration keeps one entry per
-trip: same origin and destination, with coordinates rounded to 4 decimals (about 10 m),
-and a reversed trip counts as a different trip. Re-planning a trip moves it to the top
-with the new time; running the migration removes existing duplicates, keeping the
-latest. Also apply `supabase/migrations/202609260002_delete_trip_history.sql`
-to enable deletion of a user’s own history. If a history row survives deletion,
-`supabase/migrations/202610200001_restore_history_delete_policy.sql` can safely
-restore the DELETE grant and ownership policy; see the troubleshooting guide
-in [saved-data backend documentation](docs/saved-items-backend.md). Saved-data requests now go through
-the authenticated backend; configure and deploy its Supabase integration before
-releasing this app update. See [setup and API contract](docs/saved-items-backend.md).
+Database migrations and the saved-data API contract are maintained in the
+[backend repository](https://github.com/pricezhang42/WinnipegBusTripPlanner-Backend).
+Use its versioned migration workflow before testing favorites/history. The API
+keeps ownership policies and the latest 10 distinct trips; re-planning a trip
+moves it to the top. See [the saved-data contract](docs/saved-items-backend.md).
 
 - Tap either location field to see favorite locations. Typing hides favorites;
   normal geocoding starts at three characters. Clearing shows favorites again.
@@ -155,3 +143,16 @@ segments, as in the Transit API. Route badge colors identify legs and are not
 claimed to be official route colors. Each ride also shows historical departure timing and, when supported, a pass-up
 warning. These describe past observations rather than live predictions. See the
 [current reliability flow](docs/trip-reliability-implementation.md).
+
+### Hosted database QA and migrations
+
+SQL migrations, database audits, QA refresh and fixture tools now live in the
+[backend repository](https://github.com/pricezhang42/WinnipegBusTripPlanner-Backend).
+There is one migration source of truth and no local Supabase instance is required.
+
+Use [independent connection profiles](docs/connections.md) to choose the app's API
+server and Auth project separately, for example:
+
+```sh
+npm run android -- --api local --auth qa1
+```
