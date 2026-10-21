@@ -63,7 +63,11 @@ signup, sign-in, sign-out, email confirmation, and password recovery.
    For web development also allow the corresponding URLs at your actual web
    origin, for example `http://localhost:8081/auth/callback` and the same URL
    with `?recovery=true`.
-4. Keep the default confirmation/recovery email templates using `{{ .ConfirmationURL }}`.
+4. In Authentication → Providers → Email, keep the email OTP length at 6 digits
+   (the Supabase default). In Authentication → Email Templates → Confirm signup,
+   include the code as well as the link, for example
+   `<p>Your code is <strong>{{ .Token }}</strong></p>` followed by the default
+   `{{ .ConfirmationURL }}` link. Keep the default recovery template.
    Configure a production SMTP provider before opening signup to real users;
    Supabase's default mail service restricts recipients and sending volume.
 5. Run `npm ci` and `npm run android`. SecureStore is a new native dependency,
@@ -71,7 +75,9 @@ signup, sign-in, sign-out, email confirmation, and password recovery.
    restart Metro with `npm run start -- --dev-client --clear`.
 
 After signup succeeds without a session, a dedicated confirmation page shows the
-submitted email, a 60-second resend countdown and “Back to sign in.” The resend
+submitted email, a 6-digit code entry, a 60-second resend countdown and “Back to
+sign in.” A correct code (`verifyOtp` with type `email`) signs the user in and opens
+Account; the email link still works as an alternative. The resend
 button uses the existing confirmation callback and restarts its cooldown after a
 successful resend (or a server rate-limit response). Deadlines are saved per Auth
 project/email using the existing auth storage and recalculated after backgrounding;
