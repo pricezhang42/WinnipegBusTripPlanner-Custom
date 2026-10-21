@@ -48,7 +48,8 @@ async function codeForm() {
 test('recovery emails a code without a redirect link and asks for the code', async () => {
   const tree = await codeForm();
   expect(supabase!.auth.resetPasswordForEmail).toHaveBeenCalledWith('test@example.com');
-  expect(JSON.stringify(tree.toJSON())).toContain('Enter your code');
+  expect(JSON.stringify(tree.toJSON())).toContain('Check your inbox');
+  expect(tree.root.findAllByType(Pressable)[0].props.disabled).toBe(true);
   expect(tree.root.findByType(TextInput).props.accessibilityLabel).toBe('6-digit reset code');
   expect(JSON.stringify(tree.toJSON())).toMatch(/Resend code in \d+s/);
   await act(async () => tree.unmount());
@@ -58,6 +59,7 @@ test('a valid recovery code opens the new-password screen', async () => {
   const tree = await codeForm();
   await act(async () => { tree.root.findByType(TextInput).props.onChangeText('12a3456'); });
   expect(tree.root.findByType(TextInput).props.value).toBe('123456');
+  expect(tree.root.findAllByType(Pressable)[0].props.disabled).toBe(false);
   await act(async () => { await tree.root.findAllByType(Pressable)[0].props.onPress(); });
   expect(supabase!.auth.verifyOtp).toHaveBeenCalledWith({ email: 'test@example.com', token: '123456', type: 'recovery' });
   expect(router.replace).toHaveBeenCalledWith('/auth/reset-password');

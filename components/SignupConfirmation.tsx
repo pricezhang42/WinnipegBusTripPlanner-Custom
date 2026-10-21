@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, AppState, Pressable, ScrollView, StyleSheet, TextInput } from 'react-native';
+import { ActivityIndicator, AppState, Pressable, ScrollView } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
 import { Text, View } from './Themed';
 import { styles } from './AuthForm';
+import { CodeInput, codeStyles as local } from './CodeInput';
 import { authRedirect, supabase } from '@/lib/supabase';
 import { PendingSignup, resendSeconds, SIGNUP_CODE_LENGTH, SIGNUP_CONFIRMATION_MESSAGE, signupConfirmation } from '@/lib/signupConfirmation';
 import { useAuth } from '@/providers/AuthProvider';
@@ -16,7 +17,6 @@ export function SignupConfirmation() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [code, setCode] = useState('');
-  const [codeFocused, setCodeFocused] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const sending = useRef(false);
   const mounted = useRef(true);
@@ -84,8 +84,6 @@ export function SignupConfirmation() {
       if (mounted.current) setBusy(false);
     }
   }
-  const digits = Array.from({ length: SIGNUP_CODE_LENGTH }, (_, i) => code[i] ?? '');
-  const active = Math.min(code.length, SIGNUP_CODE_LENGTH - 1);
   return <View style={{ flex: 1 }}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.container}>
     <View style={styles.card}>
       <View style={local.badge}><FontAwesome name="envelope-o" size={30} color="#176b9c" /></View>
@@ -93,16 +91,8 @@ export function SignupConfirmation() {
       {loading ? <ActivityIndicator accessibilityLabel="Loading confirmation details" /> : pending ? <>
         <Text style={[local.body, local.center]}>{`We sent a ${SIGNUP_CODE_LENGTH}-digit code to`}</Text>
         <Text style={[local.email, local.center]}>{pending.email}</Text>
-        <View style={local.codeRow}>
-          {digits.map((digit, i) => <View key={i} style={[local.codeBox, codeFocused && i === active && local.codeBoxActive]}>
-            <Text style={local.codeDigit}>{digit}</Text>
-          </View>)}
-          <TextInput accessibilityLabel={`${SIGNUP_CODE_LENGTH}-digit confirmation code`} value={code}
-            onChangeText={value => setCode(value.replace(/\D/g, '').slice(0, SIGNUP_CODE_LENGTH))}
-            onFocus={() => setCodeFocused(true)} onBlur={() => setCodeFocused(false)} onSubmitEditing={verify}
-            editable={!verifying && !busy} keyboardType="number-pad" maxLength={SIGNUP_CODE_LENGTH}
-            textContentType="oneTimeCode" autoComplete="one-time-code" caretHidden style={local.codeInput} />
-        </View>
+        <CodeInput value={code} onChange={setCode} onSubmit={verify} editable={!verifying && !busy}
+          length={SIGNUP_CODE_LENGTH} accessibilityLabel={`${SIGNUP_CODE_LENGTH}-digit confirmation code`} />
         <Pressable testID="verify" accessibilityRole="button" accessibilityState={{ disabled: !canVerify, busy: verifying }}
           disabled={!canVerify} onPress={verify} style={[styles.button, !canVerify && local.buttonDisabled]}>
           {verifying ? <ActivityIndicator color="#fff" /> : <Text style={[styles.buttonText, !canVerify && local.buttonTextDisabled]}>Verify email</Text>}
@@ -121,18 +111,3 @@ export function SignupConfirmation() {
   </ScrollView></View>;
 }
 
-const local = StyleSheet.create({
-  badge: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#e2eff9', alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginBottom: 4 },
-  center: { textAlign: 'center' },
-  body: { fontSize: 16, lineHeight: 24 },
-  email: { fontSize: 17, fontWeight: '600', marginTop: -8 },
-  codeRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginVertical: 8 },
-  codeBox: { flex: 1, maxWidth: 52, height: 56, borderWidth: 1, borderColor: '#888', borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  codeBoxActive: { borderColor: '#176b9c', borderWidth: 2 },
-  codeDigit: { fontSize: 24, fontWeight: '600' },
-  codeInput: { ...StyleSheet.absoluteFillObject, opacity: 0 },
-  linkText: { color: '#176b9c', fontWeight: '600' },
-  buttonDisabled: { backgroundColor: '#e5e7eb' },
-  buttonTextDisabled: { color: '#6b7280' },
-  hint: { color: '#6b7280', fontSize: 14 },
-});

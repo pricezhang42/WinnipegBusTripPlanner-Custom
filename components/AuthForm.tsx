@@ -1,7 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput } from 'react-native';
 import { router } from 'expo-router';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Text, View, useThemeColor } from './Themed';
+import { CodeInput, codeStyles } from './CodeInput';
 import { supabase, authRedirect } from '@/lib/supabase';
 import { resendSeconds, signupConfirmation } from '@/lib/signupConfirmation';
 
@@ -22,14 +24,14 @@ export function AuthForm({ reset = false }: { reset?: boolean }) {
   const submitting = useRef(false);
   const [message, setMessage] = useState('');
   const color = useThemeColor({}, 'text');
-  const title = { login: 'Welcome back', signup: 'Create your account', forgot: 'Forgot password?', code: 'Enter your code', reset: 'Choose a new password' }[mode];
+  const title = { login: 'Welcome back', signup: 'Create your account', forgot: 'Forgot password?', code: 'Check your inbox', reset: 'Choose a new password' }[mode];
   const label = { login: 'Sign in', signup: 'Create account', forgot: 'Send code', code: 'Verify code', reset: 'Save password' }[mode];
   const descriptions: Partial<Record<AuthMode, string>> = {
     forgot: `We’ll email you a ${RESET_CODE_LENGTH}-digit code to reset your password.`,
-    code: `If an account exists for ${email.trim()}, we sent it a ${RESET_CODE_LENGTH}-digit code. Check your spam folder if it hasn’t arrived.`,
   };
   const description = descriptions[mode] ?? 'Your next trip starts here. Trip planning is always available without an account.';
   const switchMode = (next: AuthMode) => { setMode(next); setPassword(''); setConfirmation(''); setCode(''); setMessage(''); };
+  const canVerify = !busy && code.length === RESET_CODE_LENGTH;
   const remaining = mode === 'code' ? Math.max(0, Math.ceil((resendAt - now) / 1000)) : 0;
   useEffect(() => {
     if (mode !== 'code') return;
@@ -115,22 +117,37 @@ export function AuthForm({ reset = false }: { reset?: boolean }) {
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.container}>
-        <View style={styles.card}>
+        {mode === 'code' ? <View style={styles.card}>
+          <View style={codeStyles.badge}><FontAwesome name="envelope-o" size={30} color="#176b9c" /></View>
+          <Text accessibilityRole="header" style={[styles.title, codeStyles.center]}>{title}</Text>
+          <Text style={[codeStyles.body, codeStyles.center]}>{`We sent a ${RESET_CODE_LENGTH}-digit code to`}</Text>
+          <Text style={[codeStyles.email, codeStyles.center]}>{email.trim()}</Text>
+          <CodeInput value={code} onChange={setCode} onSubmit={submit} editable={!busy}
+            length={RESET_CODE_LENGTH} accessibilityLabel={`${RESET_CODE_LENGTH}-digit reset code`} />
+          <Pressable accessibilityRole="button" accessibilityState={{ disabled: !canVerify, busy }} disabled={!canVerify} onPress={submit}
+            style={[styles.button, !canVerify && codeStyles.buttonDisabled]}>
+            {busy ? <ActivityIndicator color="#fff" /> : <Text style={[styles.buttonText, !canVerify && codeStyles.buttonTextDisabled]}>{label}</Text>}
+          </Pressable>
+          {!!message && <Text accessibilityLiveRegion="polite" style={[styles.message, codeStyles.center]}>{message}</Text>}
+          <Text style={[codeStyles.hint, codeStyles.center]}>No email? Check your spam folder. Only the latest code works.</Text>
+          <Pressable accessibilityRole="button" accessibilityState={{ disabled: busy || remaining > 0 }} disabled={busy || remaining > 0} onPress={resendCode} style={styles.link}>
+            <Text style={busy || remaining > 0 ? codeStyles.buttonTextDisabled : codeStyles.linkText}>{remaining > 0 ? `Resend code in ${remaining}s` : 'Resend code'}</Text>
+          </Pressable>
+          <Pressable accessibilityRole="button" disabled={busy} onPress={() => switchMode('login')} style={styles.link}><Text>Back to sign in</Text></Pressable>
+        </View> : <View style={styles.card}>
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.description}>{description}</Text>
-          {mode !== 'reset' && mode !== 'code' && <><Text>Email</Text><TextInput accessibilityLabel="Email" style={[styles.input, { color }]} value={email} onChangeText={setEmail} editable={!busy} autoCapitalize="none" autoCorrect={false} keyboardType="email-address" autoComplete="email" /></>}
-          {mode === 'code' && <><Text>Code</Text><TextInput accessibilityLabel={`${RESET_CODE_LENGTH}-digit reset code`} style={[styles.input, { color }]} value={code} onChangeText={value => setCode(value.replace(/\D/g, '').slice(0, RESET_CODE_LENGTH))} editable={!busy} keyboardType="number-pad" maxLength={RESET_CODE_LENGTH} textContentType="oneTimeCode" autoComplete="one-time-code" onSubmitEditing={submit} /></>}
-          {mode !== 'forgot' && mode !== 'code' && <><Text>{mode === 'reset' ? 'New password' : 'Password'}</Text><TextInput accessibilityLabel="Password" style={[styles.input, { color }]} value={password} onChangeText={setPassword} editable={!busy} secureTextEntry autoCapitalize="none" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} /></>}
+          {mode !== 'reset' && <><Text>Email</Text><TextInput accessibilityLabel="Email" style={[styles.input, { color }]} value={email} onChangeText={setEmail} editable={!busy} autoCapitalize="none" autoCorrect={false} keyboardType="email-address" autoComplete="email" /></>}
+          {mode !== 'forgot' && <><Text>{mode === 'reset' ? 'New password' : 'Password'}</Text><TextInput accessibilityLabel="Password" style={[styles.input, { color }]} value={password} onChangeText={setPassword} editable={!busy} secureTextEntry autoCapitalize="none" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} /></>}
           {(mode === 'signup' || mode === 'reset') && <><Text>Confirm password</Text><TextInput accessibilityLabel="Confirm password" style={[styles.input, { color }]} value={confirmation} onChangeText={setConfirmation} editable={!busy} secureTextEntry autoCapitalize="none" autoComplete="new-password" /></>}
           {!!message && <Text accessibilityLiveRegion="polite" style={styles.message}>{message}</Text>}
           <Pressable accessibilityRole="button" disabled={busy} onPress={submit} style={[styles.button, busy && { opacity: 0.6 }]}>{busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>{label}</Text>}</Pressable>
           {!reset && <>
             {mode === 'login' && <Pressable accessibilityRole="button" disabled={busy} onPress={() => switchMode('forgot')} style={styles.link}><Text>Forgot password?</Text></Pressable>}
-            {mode === 'code' && <Pressable accessibilityRole="button" disabled={busy || remaining > 0} onPress={resendCode} style={styles.link}><Text>{remaining > 0 ? `Resend code in ${remaining}s` : 'Resend code'}</Text></Pressable>}
             <Pressable accessibilityRole="button" disabled={busy} onPress={() => switchMode(mode === 'login' ? 'signup' : 'login')} style={styles.link}><Text>{mode === 'login' ? 'New here? Create an account' : 'Back to sign in'}</Text></Pressable>
           </>}
           <Pressable accessibilityRole="button" disabled={busy} onPress={() => router.replace('/(tabs)')} style={styles.link}><Text>Continue planning trips</Text></Pressable>
-        </View>
+        </View>}
       </ScrollView>
     </KeyboardAvoidingView>
   );
