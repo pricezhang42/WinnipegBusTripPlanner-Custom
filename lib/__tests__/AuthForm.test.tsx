@@ -109,3 +109,14 @@ test('an email rate limit shows a clear message instead of the raw server text',
   expect(JSON.stringify(tree.toJSON())).toContain('Too many emails have been sent recently.');
   await act(async () => tree.unmount());
 });
+
+test('signup for an existing account points to sign-in instead of the confirmation page', async () => {
+  jest.mocked(supabase!.auth.signUp).mockResolvedValueOnce({data:{session:null,user:{identities:[]}},error:null} as never);
+  const tree = await signupForm();
+  await act(async () => { await tree.root.findAllByType(Pressable)[0].props.onPress(); });
+  expect(router.push).not.toHaveBeenCalled();
+  expect(signupConfirmation.remember).not.toHaveBeenCalled();
+  expect(JSON.stringify(tree.toJSON())).toContain('Welcome back');
+  expect(JSON.stringify(tree.toJSON())).toContain('An account with this email already exists.');
+  await act(async () => tree.unmount());
+});

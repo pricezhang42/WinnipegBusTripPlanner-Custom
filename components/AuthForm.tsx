@@ -40,6 +40,12 @@ export function AuthForm({ reset = false }: { reset?: boolean }) {
         }
         const { data, error } = await supabase.auth.signUp({ email: email.trim(), password, options: { emailRedirectTo: authRedirect() } });
         if (error) throw error;
+        // With confirmation on, Supabase hides existing accounts behind a user with no identities and sends no email.
+        if (!data.session && data.user?.identities?.length === 0) {
+          switchMode('login');
+          setMessage('An account with this email already exists. Sign in, or use “Forgot password?” to reset it.');
+          return;
+        }
         if (!data.session) {
           await signupConfirmation.remember(email.trim());
           switchMode('login');
