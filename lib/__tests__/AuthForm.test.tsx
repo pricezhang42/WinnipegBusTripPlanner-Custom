@@ -99,3 +99,13 @@ test('returning to signup for a cooling-down email reopens confirmation without 
   expect(router.push).toHaveBeenCalledWith('/auth/confirm-email');
   await act(async () => tree.unmount());
 });
+
+test('an email rate limit shows a clear message instead of the raw server text', async () => {
+  const error = Object.assign(new Error('email rate limit exceeded'), { status: 429 });
+  jest.mocked(supabase!.auth.signUp).mockResolvedValueOnce({data:{session:null},error} as never);
+  const tree = await signupForm();
+  await act(async () => { await tree.root.findAllByType(Pressable)[0].props.onPress(); });
+  expect(router.push).not.toHaveBeenCalled();
+  expect(JSON.stringify(tree.toJSON())).toContain('Too many emails have been sent recently.');
+  await act(async () => tree.unmount());
+});

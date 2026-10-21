@@ -58,7 +58,10 @@ export function AuthForm({ reset = false }: { reset?: boolean }) {
       }
       setPassword(''); setConfirmation('');
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Unable to connect. Please try again.');
+      // Supabase returns a terse 'email rate limit exceeded' when its email quota is used up.
+      const limited = !!error && typeof error === 'object' && 'status' in error && error.status === 429;
+      setMessage(limited ? 'Too many emails have been sent recently. Please wait a few minutes and try again.'
+        : error instanceof Error ? error.message : 'Unable to connect. Please try again.');
     } finally { submitting.current = false; setBusy(false); }
   }
   return (
