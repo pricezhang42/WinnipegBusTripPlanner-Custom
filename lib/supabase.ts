@@ -17,9 +17,8 @@ export const supabase = url && key ? createClient(url, key, {
   },
 }) : null;
 
-export function authRedirect(recovery = false) {
-  const base = Platform.OS === 'web' && typeof window !== 'undefined'
+export function authRedirect() {
+  return Platform.OS === 'web' && typeof window !== 'undefined'
     ? `${window.location.origin}/auth/callback`
     : 'bustripplanner://auth/callback';
-  return recovery ? `${base}?recovery=true` : base;
 }

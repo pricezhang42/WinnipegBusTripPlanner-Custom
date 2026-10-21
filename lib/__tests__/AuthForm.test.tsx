@@ -12,6 +12,7 @@ jest.mock('../supabase', () => ({
     signInWithPassword: jest.fn(async () => ({ error: null })),
     signUp: jest.fn(async () => ({ data: { session: null }, error: null })),
     resetPasswordForEmail: jest.fn(async () => ({ error: null })),
+    verifyOtp: jest.fn(async () => ({ data: { session: { access_token: 'test' } }, error: null })),
     updateUser: jest.fn(async () => ({ error: null })),
   } },
   authRedirect: () => 'bustripplanner://auth/callback',
@@ -35,15 +36,65 @@ test('invalid input does not send credentials; valid input signs in', async () =
   expect(supabase!.auth.signInWithPassword).toHaveBeenCalledWith({ email: 'test@example.com', password: 'valid-password' });
   await act(async () => tree.unmount());
 });
-test('recovery submits email without requiring a password', async () => {
+async function codeForm() {
   let tree!: ReactTestRenderer;
   await act(async () => { tree = renderer.create(<AuthForm />); });
   await act(async () => { tree.root.findAllByType(Pressable)[1].props.onPress(); });
-  expect(tree.root.findAllByType(TextInput)).toHaveLength(1);
-  await act(async () => { tree.root.findByType(TextInput).props.onChangeText('test@example.com'); });
+  await act(async () => { tree.root.findByType(TextInput).props.onChangeText(' test@example.com '); });
   await act(async () => { await tree.root.findAllByType(Pressable)[0].props.onPress(); });
-  expect(supabase!.auth.resetPasswordForEmail).toHaveBeenCalledWith('test@example.com', { redirectTo: 'bustripplanner://auth/callback' });
+  return tree;
+}
+
+test('recovery emails a code without a redirect link and asks for the code', async () => {
+  const tree = await codeForm();
+  expect(supabase!.auth.resetPasswordForEmail).toHaveBeenCalledWith('test@example.com');
+  expect(JSON.stringify(tree.toJSON())).toContain('Check your inbox');
+  expect(tree.root.findAllByType(Pressable)[0].props.disabled).toBe(true);
+  expect(tree.root.findByType(TextInput).props.accessibilityLabel).toBe('6-digit reset code');
+  expect(JSON.stringify(tree.toJSON())).toMatch(/Resend code in \d+s/);
   await act(async () => tree.unmount());
+});
+
+test('a valid recovery code opens the new-password screen', async () => {
+  const tree = await codeForm();
+  await act(async () => { tree.root.findByType(TextInput).props.onChangeText('12a3456'); });
+  expect(tree.root.findByType(TextInput).props.value).toBe('123456');
+  expect(tree.root.findAllByType(Pressable)[0].props.disabled).toBe(false);
+  await act(async () => { await tree.root.findAllByType(Pressable)[0].props.onPress(); });
+  expect(supabase!.auth.verifyOtp).toHaveBeenCalledWith({ email: 'test@example.com', token: '123456', type: 'recovery' });
+  expect(router.replace).toHaveBeenCalledWith('/auth/reset-password');
+  await act(async () => tree.unmount());
+});
+
+test('an incomplete or rejected recovery code shows an error and stays on the code step', async () => {
+  const tree = await codeForm();
+  await act(async () => { tree.root.findByType(TextInput).props.onChangeText('123'); });
+  await act(async () => { await tree.root.findAllByType(Pressable)[0].props.onPress(); });
+  expect(supabase!.auth.verifyOtp).not.toHaveBeenCalled();
+  expect(JSON.stringify(tree.toJSON())).toContain('Enter the 6-digit code from your email.');
+  jest.mocked(supabase!.auth.verifyOtp).mockResolvedValueOnce({ data: { session: null }, error: { status: 403, message: 'Token has expired or is invalid' } } as never);
+  await act(async () => { tree.root.findByType(TextInput).props.onChangeText('654321'); });
+  await act(async () => { await tree.root.findAllByType(Pressable)[0].props.onPress(); });
+  expect(router.replace).not.toHaveBeenCalled();
+  expect(JSON.stringify(tree.toJSON())).toContain('That code is incorrect or has expired');
+  expect(tree.root.findByType(TextInput).props.value).toBe('');
+  await act(async () => tree.unmount());
+});
+
+test('resending the recovery code waits for the cooldown', async () => {
+  jest.useFakeTimers({ now: 1_000_000 });
+  try {
+    const tree = await codeForm();
+    const resend = () => tree.root.findAllByType(Pressable)[1];
+    expect(resend().props.disabled).toBe(true);
+    await act(async () => { jest.advanceTimersByTime(60_000); });
+    expect(resend().props.disabled).toBe(false);
+    await act(async () => { await resend().props.onPress(); });
+    expect(supabase!.auth.resetPasswordForEmail).toHaveBeenCalledTimes(2);
+    expect(JSON.stringify(tree.toJSON())).toContain('A new code is on its way');
+    expect(resend().props.disabled).toBe(true);
+    await act(async () => tree.unmount());
+  } finally { jest.useRealTimers(); }
 });
 
 async function signupForm() {

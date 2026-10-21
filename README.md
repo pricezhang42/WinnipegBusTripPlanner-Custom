@@ -57,17 +57,17 @@ signup, sign-in, sign-out, email confirmation, and password recovery.
 2. Copy `.env.example` to `.env.local`. Set `QA1_SUPABASE_URL` and
    `QA1_SUPABASE_PUBLISHABLE_KEY` to the project URL and publishable key
    (a legacy anon key also works). Never put a secret/service-role key in the app.
-3. In Authentication → URL Configuration, allow both exact redirects:
-   - `bustripplanner://auth/callback`
-   - `bustripplanner://auth/callback?recovery=true`
-   For web development also allow the corresponding URLs at your actual web
-   origin, for example `http://localhost:8081/auth/callback` and the same URL
-   with `?recovery=true`.
+3. In Authentication → URL Configuration, allow the exact redirect
+   `bustripplanner://auth/callback`. For web development also allow the
+   corresponding URL at your actual web origin, for example
+   `http://localhost:8081/auth/callback`.
 4. In Authentication → Providers → Email, keep the email OTP length at 6 digits
    (the Supabase default). In Authentication → Email Templates → Confirm signup,
    include the code as well as the link, for example
    `<p>Your code is <strong>{{ .Token }}</strong></p>` followed by the default
-   `{{ .ConfirmationURL }}` link. Keep the default recovery template.
+   `{{ .ConfirmationURL }}` link. In Email Templates → Reset Password, replace the
+   body with the code only, for example
+   `<p>Your password reset code is <strong>{{ .Token }}</strong></p>`, and no link.
    Configure a production SMTP provider before opening signup to real users;
    Supabase's default mail service restricts recipients and sending volume.
 5. Run `npm ci` and `npm run android`. SecureStore is a new native dependency,
@@ -86,7 +86,12 @@ another email. Immediate-session signup still opens Account directly. Storage
 failures keep the timer in memory and show a warning. Passwords and link tokens
 are never stored in this confirmation state or passed in navigation URLs.
 
-Email links use PKCE: open them on the same device/browser that requested them.
+Password reset is code-only: “Forgot password?” emails a 6-digit code, the form
+switches to a code step with a 60-second resend countdown, and a correct code
+(`verifyOtp` with type `recovery`) signs the user in and opens “Choose a new
+password.”
+
+Signup email links use PKCE: open them on the same device/browser that requested them.
 On an emulator, open the email link inside the emulator browser. An expired,
 reused, or cross-device link displays a recoverable error on the callback screen.
 Without Supabase configuration, Account displays an unavailable message while
@@ -105,8 +110,9 @@ Manual verification with a configured project:
   error/retry and Back to sign in. Use QA for live email delivery tests.
 - Check invalid credentials, mismatched passwords, and network failure messages.
 - Restart the app and confirm the account session persists; sign out and restart.
-- Request password recovery, open the email, set a new password, and sign in again.
-- Open an expired/reused link and visit `/auth/reset-password` while signed out.
+- Request password recovery, enter the emailed code (on any device), set a new
+  password, and sign in again. Check a wrong code, an older code after resending,
+  and visiting `/auth/reset-password` while signed out.
 - Verify dark mode, keyboard layout, and Search/Map navigation after login/logout.
 
 References: [Supabase React Native auth](https://supabase.com/docs/guides/auth/quickstarts/react-native)
