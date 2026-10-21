@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput } from 'react-native';
 import { router } from 'expo-router';
 import { Text, View, useThemeColor } from './Themed';
 import { supabase, authRedirect } from '@/lib/supabase';
+import { resendSeconds, signupConfirmation } from '@/lib/signupConfirmation';
 
 export type AuthMode = 'login' | 'signup' | 'forgot' | 'reset';
 export function AuthForm({ reset = false }: { reset?: boolean }) {
@@ -11,25 +12,47 @@ export function AuthForm({ reset = false }: { reset?: boolean }) {
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [busy, setBusy] = useState(false);
+  const submitting = useRef(false);
   const [message, setMessage] = useState('');
   const color = useThemeColor({}, 'text');
   const title = { login: 'Welcome back', signup: 'Create your account', forgot: 'Forgot password?', reset: 'Choose a new password' }[mode];
   const label = { login: 'Sign in', signup: 'Create account', forgot: 'Send reset link', reset: 'Save password' }[mode];
   const switchMode = (next: AuthMode) => { setMode(next); setPassword(''); setConfirmation(''); setMessage(''); };
   async function submit() {
-    if (!supabase || busy) return;
+    if (!supabase || busy || submitting.current) return;
     if (mode !== 'reset' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { setMessage('Enter a valid email address.'); return; }
     if (mode !== 'forgot' && (!password || (mode !== 'login' && password.length < 8))) { setMessage(mode === 'login' ? 'Enter your password.' : 'Use at least 8 characters for your password.'); return; }
     if ((mode === 'signup' || mode === 'reset') && password !== confirmation) { setMessage('Passwords do not match.'); return; }
+    submitting.current = true;
     setBusy(true); setMessage('');
     try {
       if (mode === 'login') {
         const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
         if (error) throw error;
       } else if (mode === 'signup') {
+        // Returning to signup must not bypass the pending email's resend cooldown.
+        const pending = await signupConfirmation.get(email.trim());
+        if (pending && resendSeconds(pending) > 0) {
+          await signupConfirmation.select(email.trim());
+          switchMode('login');
+          router.push('/auth/confirm-email');
+          return;
+        }
         const { data, error } = await supabase.auth.signUp({ email: email.trim(), password, options: { emailRedirectTo: authRedirect() } });
         if (error) throw error;
-        if (!data.session) setMessage('Check your email to confirm your account. Open the link on this device, then sign in.');
+        // With confirmation on, Supabase hides existing accounts behind a user with no identities and sends no email.
+        if (!data.session && data.user?.identities?.length === 0) {
+          switchMode('login');
+          setMessage('An account with this email already exists. Sign in, or use “Forgot password?” to reset it.');
+          return;
+        }
+        if (!data.session) {
+          await signupConfirmation.remember(email.trim());
+          switchMode('login');
+          router.push('/auth/confirm-email');
+        } else {
+          router.replace('/(tabs)/account');
+        }
       } else if (mode === 'forgot') {
         const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: authRedirect(true) });
         if (error) throw error;
@@ -41,8 +64,11 @@ export function AuthForm({ reset = false }: { reset?: boolean }) {
       }
       setPassword(''); setConfirmation('');
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Unable to connect. Please try again.');
-    } finally { setBusy(false); }
+      // Supabase returns a terse 'email rate limit exceeded' when its email quota is used up.
+      const limited = !!error && typeof error === 'object' && 'status' in error && error.status === 429;
+      setMessage(limited ? 'Too many emails have been sent recently. Please wait a few minutes and try again.'
+        : error instanceof Error ? error.message : 'Unable to connect. Please try again.');
+    } finally { submitting.current = false; setBusy(false); }
   }
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
