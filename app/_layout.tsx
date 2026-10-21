@@ -55,6 +55,7 @@ function RootLayoutNav() {
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="about" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="auth/confirm-email" options={{ title: 'Confirm your email' }} />
         <Stack.Screen name="auth/callback" options={{ title: 'Confirm account' }} />
         <Stack.Protected guard={loading || !!session}>
           <Stack.Screen name="auth/reset-password" options={{ title: 'Reset password' }} />

@@ -70,6 +70,16 @@ signup, sign-in, sign-out, email confirmation, and password recovery.
    so rebuild an existing development client once. After environment changes,
    restart Metro with `npm run start -- --dev-client --clear`.
 
+After signup succeeds without a session, a dedicated confirmation page shows the
+submitted email, a 60-second resend countdown and “Back to sign in.” The resend
+button uses the existing confirmation callback and restarts its cooldown after a
+successful resend (or a server rate-limit response). Deadlines are saved per Auth
+project/email using the existing auth storage and recalculated after backgrounding;
+returning to signup during an active cooldown reopens the page without sending
+another email. Immediate-session signup still opens Account directly. Storage
+failures keep the timer in memory and show a warning. Passwords and link tokens
+are never stored in this confirmation state or passed in navigation URLs.
+
 Email links use PKCE: open them on the same device/browser that requested them.
 On an emulator, open the email link inside the emulator browser. An expired,
 reused, or cross-device link displays a recoverable error on the callback screen.
@@ -83,6 +93,10 @@ Supabase access tokens and retain database RLS. See [saved-data backend setup](d
 Manual verification with a configured project:
 - As a guest, open Search and Map, including with Supabase configuration absent.
 - Create an account, open its confirmation email in the same device, and sign in.
+- After signup, verify the confirmation page/email and disabled resend countdown.
+  Leave/reopen the page or background the app; the remaining time must not reset.
+  After expiry, resend once and check the new countdown, callback link, offline
+  error/retry and Back to sign in. Use QA for live email delivery tests.
 - Check invalid credentials, mismatched passwords, and network failure messages.
 - Restart the app and confirm the account session persists; sign out and restart.
 - Request password recovery, open the email, set a new password, and sign in again.
