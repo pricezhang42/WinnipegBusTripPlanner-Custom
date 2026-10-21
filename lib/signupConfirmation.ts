@@ -1,7 +1,7 @@
 import { authStorage } from './authStorage';
 
 export const SIGNUP_RESEND_DELAY = 60_000;
-export const SIGNUP_CONFIRMATION_MESSAGE = 'Check your email to confirm your account. Open the link on this device, then sign in.';
+export const SIGNUP_CONFIRMATION_MESSAGE = 'Open the link on this device to confirm your account, then sign in.';
 export type PendingSignup = { email: string; resendAvailableAt: number };
 type SavedSignups = { version: 1; currentEmail: string | null; emails: Record<string, PendingSignup> };
 type Storage = Pick<typeof authStorage, 'getItem' | 'setItem'>;

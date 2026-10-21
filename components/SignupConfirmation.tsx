@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, AppState, Pressable, ScrollView } from 'react-native';
+import { ActivityIndicator, AppState, Pressable, ScrollView, StyleSheet } from 'react-native';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
 import { Text, View } from './Themed';
@@ -66,21 +67,34 @@ export function SignupConfirmation() {
       if (mounted.current) setBusy(false);
     }
   }
-  return <ScrollView contentContainerStyle={styles.container}>
+  return <View style={{ flex: 1 }}><ScrollView contentContainerStyle={styles.container}>
     <View style={styles.card}>
-      <Text accessibilityRole="header" style={styles.title}>Check your email</Text>
-      <Text style={styles.description}>{SIGNUP_CONFIRMATION_MESSAGE}</Text>
-      {loading ? <ActivityIndicator accessibilityLabel="Loading confirmation details" /> : pending ?
-        <Text style={styles.description}>Email: {pending.email}</Text> :
-        <Text style={styles.message}>No pending confirmation was found. Return to sign in to create an account.</Text>}
+      <View style={local.badge}><FontAwesome name="envelope-o" size={30} color="#176b9c" /></View>
+      <Text accessibilityRole="header" style={[styles.title, local.center]}>Check your inbox</Text>
+      {loading ? <ActivityIndicator accessibilityLabel="Loading confirmation details" /> : pending ? <>
+        <Text style={[local.body, local.center]}>We sent a confirmation link to</Text>
+        <Text style={[local.email, local.center]}>{pending.email}</Text>
+        <Text style={[styles.description, local.center]}>{SIGNUP_CONFIRMATION_MESSAGE}</Text>
+      </> : <Text style={[styles.message, local.center]}>No pending confirmation was found. Return to sign in to create an account.</Text>}
       <Pressable accessibilityRole="button" accessibilityState={{ disabled, busy }} disabled={disabled}
-        onPress={resend} style={[styles.button, disabled && { opacity: 0.6 }]}>
-        <Text style={styles.buttonText}>{busy ? 'Sending…' : remaining > 0 ? `Resend email (${remaining}s)` : 'Resend confirmation email'}</Text>
+        onPress={resend} style={[styles.button, disabled && local.buttonDisabled]}>
+        <Text style={[styles.buttonText, disabled && local.buttonTextDisabled]}>{busy ? 'Sending…' : remaining > 0 ? `Resend email (${remaining}s)` : 'Resend confirmation email'}</Text>
       </Pressable>
-      {!!message && <Text accessibilityLiveRegion="polite" style={styles.message}>{message}</Text>}
+      {!!message && <Text accessibilityLiveRegion="polite" style={[styles.message, local.center]}>{message}</Text>}
+      {!message && pending && <Text style={[local.hint, local.center]}>Didn’t get it? Check your spam folder.</Text>}
       <Pressable accessibilityRole="button" disabled={busy} onPress={() => router.replace('/(tabs)/account')} style={styles.link}>
         <Text>Back to sign in</Text>
       </Pressable>
     </View>
-  </ScrollView>;
+  </ScrollView></View>;
 }
+
+const local = StyleSheet.create({
+  badge: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#e2eff9', alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginBottom: 4 },
+  center: { textAlign: 'center' },
+  body: { fontSize: 16, lineHeight: 24 },
+  email: { fontSize: 17, fontWeight: '600', marginTop: -8 },
+  buttonDisabled: { backgroundColor: '#e5e7eb' },
+  buttonTextDisabled: { color: '#6b7280' },
+  hint: { color: '#6b7280', fontSize: 14 },
+});

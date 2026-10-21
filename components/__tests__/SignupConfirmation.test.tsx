@@ -41,7 +41,7 @@ afterEach(async () => {
 
 test('shows the requested message/email, disables resend for 60 seconds, then enables it', async () => {
   await open();
-  expect(text()).toContain('Check your email to confirm your account. Open the link on this device, then sign in.');
+  expect(text()).toContain('Open the link on this device to confirm your account, then sign in.');
   expect(text()).toContain('user@example.com');
   expect(text()).toContain('Resend email (60s)');
   expect(button().props.disabled).toBe(true);
