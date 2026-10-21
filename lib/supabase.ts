@@ -1,5 +1,6 @@
 import 'react-native-url-polyfill/auto';
-import { createClient, processLock } from '@supabase/supabase-js';
+import './webCrypto';
+import { createClient } from '@supabase/supabase-js';
 import { Platform } from 'react-native';
 import { authStorage } from './authStorage';
 
@@ -13,7 +14,6 @@ export const supabase = url && key ? createClient(url, key, {
     autoRefreshToken: true,
     detectSessionInUrl: false,
     flowType: 'pkce',
-    lock: processLock,
   },
 }) : null;
 
