@@ -15,9 +15,9 @@
 🗺️ Interactive Route Maps
 - View the entire bus ride on a map, including bus lines, ride segments, and walk transfers.
 
-- Route polylines come from the Winnipeg Transit **GTFS feed**. The backend matches each ride to the GTFS line that serves its boarding and alighting stops (by stop ID) and returns that stretch with the trip plan, so the map needs no extra requests. Each ride is drawn in its own colour, walking and transfer legs as dashed grey lines, and a straight line is used if a ride has no match. OpenStreetMap tiles underlay the map.
+- Route polylines come from the Winnipeg Transit **GTFS feed**. The backend matches each ride to the GTFS line that serves its boarding and alighting stops (by stop ID) and returns that stretch with the trip plan, so the map needs no extra requests. Each ride is drawn in its route's official Winnipeg Transit colour, walking and transfer legs as dashed grey lines, and a straight line is used if a ride has no match. OpenStreetMap tiles underlay the map.
 
-Each ride is highlighted with different colors for clarity.
+Route badges and map lines use Winnipeg Transit's official route colours, so a route looks the same in every trip, list position, detail view and map. See [route colours](docs/route-colors.md).
 
 🚏 Stop Shelter Detection
 - Integrates Winnipeg Transit stop features to indicate if a stop has a:
@@ -158,8 +158,8 @@ names when supplied, ride durations, transfer walking/waiting, and shelter detai
 Walking uses dotted connectors and rides use solid connectors. Dates appear when
 an itinerary crosses midnight. Missing times or stop details are labeled rather
 than guessed. Ride endpoints can come from immediately adjacent walk/transfer
-segments, as in the Transit API. Route badge colors identify legs and are not
-claimed to be official route colors. Each ride also shows historical departure timing and, when supported, a pass-up
+segments, as in the Transit API. Route badges use the official route colours
+([route colours](docs/route-colors.md)). Each ride also shows historical departure timing and, when supported, a pass-up
 warning. These describe past observations rather than live predictions. See the
 [current reliability flow](docs/trip-reliability-implementation.md).
 

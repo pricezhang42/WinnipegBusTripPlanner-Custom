@@ -20,6 +20,7 @@ test('each ride is drawn separately, from its own path or a straight line betwee
     ['BLUE', 'Main at Portage', 'Plaza Station', 3],
     ['F9', 'Pembina Ramp', 'Thatcher', 2],
   ]);
+  expect(rides.map(r => r.style.lineColor)).toEqual(['#0064b1', '#00b262']);
   expect(rides[0].points[1]).toEqual({ latitude: 49.85, longitude: -97.15 });
   expect(rides[1].points).toEqual([{ latitude: 49.82114, longitude: -97.15241 }, { latitude: 49.801, longitude: -97.141 }]);
   // Walk to the first stop, the transfer walk, and the walk from the last stop.

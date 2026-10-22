@@ -2,12 +2,13 @@ import React from 'react';
 import { RideReliability } from './RideReliability';
 import { View, Text, Pressable, StyleSheet, useColorScheme, useWindowDimensions } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { routeStyle } from '@/lib/routeStyle';
 import { outsideMinutes, durationSummary, endpointLabel, Itinerary, minutes, Segment, segmentEndpoints, timeLabel, Endpoint } from '@/lib/itinerary';
 
 type Palette = { background: string; text: string; muted: string; line: string; badge: string };
-const routeColors = ['#087d54', '#0964a0', '#8352a4', '#a9501b'];
-function RouteBadge({ segment, index }: { segment: Segment; index: number }) {
-  return <View style={[styles.badge, { backgroundColor: routeColors[index % routeColors.length] }]}><Text style={styles.badgeText}>{segment.route?.key ?? 'Bus'}</Text></View>;
+function RouteBadge({ segment }: { segment: Segment }) {
+  const style = routeStyle(segment.route);
+  return <View testID="route-badge" style={[styles.badge, { backgroundColor: style.backgroundColor, borderColor: style.borderColor }]}><Text style={[styles.badgeText, { color: style.color }]}>{style.label}</Text></View>;
 }
 function StopRow({ endpoint, label, time, base, color, palette, timeWidth }: { endpoint?: Endpoint; label: string; time?: string; base?: string; color?: string; palette: Palette; timeWidth: number }) {
   return <View style={styles.timelineRow}>
@@ -20,10 +21,10 @@ function StopRow({ endpoint, label, time, base, color, palette, timeWidth }: { e
   </View>;
 }
 // Historical evidence stays with the boarding it describes.
-export function RideDetails({ segment, index, palette }: { segment: Segment; index: number; palette: Palette }) {
+export function RideDetails({ segment, palette }: { segment: Segment; palette: Palette }) {
   return <>
     <Text style={[styles.detail, { color: palette.text }]}><FontAwesome name="bus" /> Ride for {minutes(segment.times?.durations?.riding ?? segment.times?.durations?.total)}</Text>
-    <View style={styles.routeRow}><RouteBadge segment={segment} index={index} /><View style={styles.routeText}>
+    <View style={styles.routeRow}><RouteBadge segment={segment} /><View style={styles.routeText}>
       {!!segment.route?.name && <Text style={[styles.routeName, { color: palette.text }]}>{segment.route.name}</Text>}
       {!!segment.variant?.name && <Text style={[styles.secondary, { color: palette.muted }]}>{segment.variant.name}</Text>}
     </View></View>
@@ -56,7 +57,7 @@ export function TripCard({ plan, expanded, onToggle, onViewMap, originName, dest
   return <View style={[styles.card, { backgroundColor: palette.background, borderColor: palette.line }]}>
     <View style={styles.header}>
       <View style={styles.summary}>
-        <View style={styles.badges}>{rides.map((segment, index) => <RouteBadge key={index} segment={segment} index={index} />)}{!rides.length && <Text style={{ color: palette.text }}>{segments.length ? 'Walking trip' : 'Trip'}</Text>}</View>
+        <View style={styles.badges}>{rides.map((segment, index) => <RouteBadge key={index} segment={segment} />)}{!rides.length && <Text style={{ color: palette.text }}>{segments.length ? 'Walking trip' : 'Trip'}</Text>}</View>
         <Text style={[styles.summaryTime, { color: palette.text }]}>{timeLabel(base, base)} → {timeLabel(plan.times?.end ?? segments[segments.length - 1]?.times?.end, base)}</Text>
         <Text style={[styles.secondary, { color: palette.muted }]}>{minutes(plan.times?.durations?.total)} total</Text>
       </View>
@@ -82,14 +83,13 @@ export function TripCard({ plan, expanded, onToggle, onViewMap, originName, dest
         const sharedBoundary = sharedStop && !!segment.times?.end && segment.times.end === next?.times?.start;
         const waiting = segment.times?.durations?.waiting;
         const shelter = endpoints.to?.stop?.key != null ? shelters[String(endpoints.to.stop.key)] : undefined;
-        const rideIndex = segments.slice(0, index).filter(s => s.type === 'ride').length;
         return <React.Fragment key={index}>
           <StopRow endpoint={endpoints.from} label={index === 0 ? originName ?? 'Origin' : 'Boarding or transfer stop unavailable'} time={segment.times?.start} base={base} color={index === 0 ? '#0aa76e' : undefined} palette={palette} timeWidth={timeWidth} />
           <View style={styles.timelineRow}>
             <View style={{ width: timeWidth }} />
             <View style={styles.connectorRail}>{segment.type === 'ride' ? <View style={[styles.solidLine, { borderColor: palette.line }]} /> : <View style={styles.dots}>{[0,1,2,3,4].map(i => <View key={i} style={[styles.smallDot, { backgroundColor: palette.line }]} />)}</View>}</View>
             <View style={styles.segmentContent}>
-              {segment.type === 'ride' ? <RideDetails segment={segment} index={rideIndex} palette={palette} /> : <>
+              {segment.type === 'ride' ? <RideDetails segment={segment} palette={palette} /> : <>
                 <Text style={[styles.detail, { color: palette.text }]}>{segment.type === 'transfer' ? (segment.times?.durations?.walking != null ? 'Transfer walk' : 'Transfer') : segment.type === 'walk' ? 'Walk' : 'Travel'} · {minutes(segment.times?.durations?.walking ?? segment.times?.durations?.total)}</Text>
                 {!!waiting && waiting > 0 && <Text style={[styles.secondary, { color: palette.text }]}>Wait {minutes(waiting)} at {endpointLabel(endpoints.to, 'the boarding stop')}</Text>}
                 {!!shelter && <Text style={[styles.shelter, shelterColors[shelter] ?? { color: palette.muted, backgroundColor: palette.badge }]}>At next stop: {shelter === 'Unsheltered' ? 'No shelter' : shelter}</Text>}
@@ -107,7 +107,7 @@ const styles = StyleSheet.create({
   outside: { alignSelf: 'flex-start', marginTop: 12, paddingHorizontal: 12, paddingVertical: 9, borderRadius: 8, borderWidth: 1, fontSize: 16, lineHeight: 23, fontWeight: '700' },
   shelter: { alignSelf: 'flex-start', marginTop: 8, paddingHorizontal: 9, paddingVertical: 6, borderRadius: 6, fontSize: 14, lineHeight: 21, fontWeight: '700' },
   card: { marginTop: 16, padding: 14, borderRadius: 14, borderWidth: 1 }, header: { flexDirection: 'row', alignItems: 'flex-start' }, summary: { flex: 1, minWidth: 0 }, badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginBottom: 10 },
-  badge: { borderRadius: 7, paddingHorizontal: 11, paddingVertical: 9, alignSelf: 'flex-start' }, badgeText: { color: '#fff', fontWeight: '700', fontSize: 18 }, expand: { minWidth: 48, minHeight: 48, alignItems: 'center', justifyContent: 'center', marginRight: -6 },
+  badge: { borderRadius: 7, borderWidth: 2, paddingHorizontal: 9, paddingVertical: 7, alignSelf: 'flex-start' }, badgeText: { fontWeight: '700', fontSize: 18 }, expand: { minWidth: 48, minHeight: 48, alignItems: 'center', justifyContent: 'center', marginRight: -6 },
   summaryTime: { fontSize: 17, fontWeight: '600', lineHeight: 25 }, secondary: { fontSize: 14, lineHeight: 21, marginTop: 4 }, metrics: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 12 }, metric: { fontSize: 13, lineHeight: 21 },
   timeline: { marginTop: 16, borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 12 }, timezone: { fontSize: 12, marginBottom: 16 }, timelineRow: { flexDirection: 'row', alignItems: 'stretch' }, time: { fontSize: 12, paddingTop: 4, paddingRight: 4, lineHeight: 19 },
   rail: { width: 26, alignItems: 'center', paddingTop: 3 }, dot: { width: 19, height: 19, borderRadius: 10, borderWidth: 2 }, stopContent: { flex: 1, minWidth: 0, paddingLeft: 9, paddingBottom: 10 }, stopName: { fontSize: 16, lineHeight: 23 }, stopId: { fontSize: 12, borderRadius: 5, alignSelf: 'flex-start', paddingHorizontal: 6, paddingVertical: 2, marginBottom: 5 },

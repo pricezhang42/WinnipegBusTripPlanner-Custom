@@ -1,4 +1,5 @@
 import type { RideReliability, RidePassupRisk } from './reliability';
+import type { StyledRoute } from './routeStyle';
 export type Endpoint = { stop?: { key?: string | number; name?: string }; origin?: unknown; destination?: unknown };
 export type Times = { start?: string; end?: string; durations?: { total?: number; riding?: number; walking?: number; waiting?: number } };
 export type Segment = {
@@ -7,7 +8,7 @@ export type Segment = {
   type?: string;
   from?: Endpoint;
   to?: Endpoint;
-  route?: { key?: string | number; name?: string };
+  route?: StyledRoute & { name?: string };
   variant?: { name?: string };
   times?: Times;
 };

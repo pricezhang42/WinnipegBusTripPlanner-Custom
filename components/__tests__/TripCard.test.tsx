@@ -25,3 +25,20 @@ test('expansion and map actions are independent and the timeline uses real detai
   expect(map).toHaveBeenCalledTimes(1); expect(toggle).toHaveBeenCalledTimes(1);
   await act(async () => tree.unmount());
 });
+test('route badges keep their official colours whatever the ride order, in summary and details', async () => {
+  const ride = (key: string) => ({ type: 'ride', route: { key }, times: { durations: { riding: 5 } } });
+  const colours = async (keys: string[]) => {
+    let tree!: ReactTestRenderer;
+    const props = { plan: { segments: keys.map(ride) }, number: 1, onToggle: () => {}, onViewMap: () => {}, shelters: {}, expanded: true };
+    await act(async () => { tree = renderer.create(<TripCard {...props} />); });
+    const found = Object.fromEntries(tree.root.findAll(n => n.props.testID === 'route-badge' && typeof n.type === 'string')
+      .map(n => [n.findByType('Text' as never).props.children, n.props.style[1].backgroundColor]));
+    const count = tree.root.findAll(n => n.props.testID === 'route-badge' && typeof n.type === 'string').length;
+    await act(async () => tree.unmount());
+    return { found, count };
+  };
+  const forward = await colours(['BLUE', 'FX2', 'F5']);
+  expect(forward.found).toEqual({ BLUE: '#0064b1', FX2: '#f37043', F5: '#00b262' });
+  expect(forward.count).toBe(6); // Three in the summary, three in the expanded details.
+  expect((await colours(['F5', 'FX2', 'BLUE'])).found).toEqual(forward.found);
+});
