@@ -1,6 +1,8 @@
+import { routeStyle, RouteStyle, StyledRoute } from './routeStyle';
+
 export type Coordinate = { latitude: number; longitude: number };
 export type Stop = Coordinate & { name: string };
-export type RideLeg = { bus: string | number; origin: Stop; destination: Stop; points: Coordinate[] };
+export type RideLeg = { bus: string | number; style: RouteStyle; origin: Stop; destination: Stop; points: Coordinate[] };
 export type MapLegs = { rides: RideLeg[]; walks: Coordinate[][] };
 
 type Geographic = { latitude?: string | number; longitude?: string | number };
@@ -10,7 +12,7 @@ type Endpoint = {
   origin?: { monument?: { address?: Place }; point?: Place; address?: Place };
   destination?: { monument?: { address?: Place }; point?: Place; address?: Place };
 };
-export type Segment = { type?: string; route?: { key?: string | number }; from?: Endpoint; to?: Endpoint; path?: unknown };
+export type Segment = { type?: string; route?: StyledRoute; from?: Endpoint; to?: Endpoint; path?: unknown };
 
 function coordinate(value?: Geographic): Coordinate | null {
   const latitude = Number(value?.latitude), longitude = Number(value?.longitude);
@@ -47,6 +49,7 @@ export function mapLegs(segments: Segment[] = []): MapLegs {
       if (!board || !exit || segment.route?.key == null) return;
       rides.push({
         bus: segment.route.key,
+        style: routeStyle(segment.route),
         origin: { ...board, name: (segment.from ?? before)?.stop?.name ?? 'Boarding stop' },
         destination: { ...exit, name: (segment.to ?? after)?.stop?.name ?? 'Exit stop' },
         points: drawn ?? [board, exit],

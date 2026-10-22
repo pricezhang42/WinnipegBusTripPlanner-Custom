@@ -14,8 +14,6 @@ import * as Haptics from 'expo-haptics';
 import { playSoundAsync } from 'expo-audio';
 import { mapLegs, Coordinate, RideLeg } from '@/lib/mapLegs';
 
-const colorPalette = ['blue', 'black', 'green'];
-
 const walkColor = '#6b7280';
 
 const DEFAULT_LOCATION: Coordinate = {
@@ -151,12 +149,12 @@ export default function MapScreen() {
               <Polyline
                 coordinates={route.points}
                 strokeWidth={3}
-                strokeColor={colorPalette[index % colorPalette.length]}
+                strokeColor={route.style.lineColor}
                 zIndex={1}
               />
             )}
-            <Marker coordinate={route.origin} pinColor={colorPalette[index % colorPalette.length]} title="Origin" />
-            <Marker coordinate={route.destination} pinColor={colorPalette[index % colorPalette.length]} title="Destination" />
+            <Marker coordinate={route.origin} pinColor={route.style.lineColor} title={`${route.style.label} boarding`} />
+            <Marker coordinate={route.destination} pinColor={route.style.lineColor} title={`${route.style.label} exit`} />
           </React.Fragment>
         ))}
 
