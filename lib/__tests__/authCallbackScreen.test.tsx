@@ -1,7 +1,6 @@
 import React from 'react';
 import { beforeEach, expect, jest, test } from '@jest/globals';
 import renderer, { act, ReactTestRenderer } from 'react-test-renderer';
-import { Pressable } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import AuthCallbackScreen from '../../app/auth/callback';
 import { exchangeAuthCode } from '../authCallback';
@@ -31,13 +30,4 @@ test('an expired signup link names the confirmation email and points to a new co
   expect(text()).toContain('This confirmation link is invalid or has expired. Request a new code from the confirmation page.');
   expect(exchangeAuthCode).not.toHaveBeenCalled();
   expect(router.replace).not.toHaveBeenCalled();
-});
-
-test('an old password reset link is not exchanged and points to Forgot password', async () => {
-  await open({ code: 'abc', recovery: 'true' });
-  expect(text()).toContain('This password reset link is no longer used. Use Forgot password? to get a code.');
-  expect(text()).not.toContain('Unable to confirm');
-  expect(exchangeAuthCode).not.toHaveBeenCalled();
-  await act(async () => { tree.root.find(node => node.type === Pressable && node.props.testID === 'sign-in').props.onPress(); });
-  expect(router.replace).toHaveBeenCalledWith('/(tabs)/account');
 });

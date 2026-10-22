@@ -5,18 +5,14 @@ import { Text, View } from '@/components/Themed';
 import { styles } from '@/components/AuthForm';
 import { exchangeAuthCode } from '@/lib/authCallback';
 
-// Only signup confirmation links land here. Password reset is code-only, so an old reset link
-// (recovery=true) gets pointed at "Forgot password?" instead of being exchanged.
-const OLD_RESET_LINK_MESSAGE = 'This password reset link is no longer used. Use Forgot password? to get a code.';
+// Only signup confirmation links land here; password reset is code-only.
 const INVALID_LINK_MESSAGE = 'This confirmation link is invalid or has expired. Request a new code from the confirmation page.';
 
 export default function AuthCallbackScreen() {
-  const params = useLocalSearchParams<{ code?: string; recovery?: string; error?: string }>();
+  const params = useLocalSearchParams<{ code?: string; error?: string }>();
   const [message, setMessage] = useState('');
-  const { code, recovery, error } = params;
-  const oldResetLink = recovery === 'true';
+  const { code, error } = params;
   useEffect(() => {
-    if (oldResetLink) return;
     let active = true;
     setMessage('');
     async function complete() {
@@ -30,11 +26,7 @@ export default function AuthCallbackScreen() {
     }
     complete();
     return () => { active = false; };
-  }, [code, oldResetLink, error]);
-  if (oldResetLink) return <View style={styles.container}>
-    <Text style={styles.title}>Reset your password</Text><Text style={styles.message}>{OLD_RESET_LINK_MESSAGE}</Text>
-    <Pressable accessibilityRole="button" testID="sign-in" style={styles.button} onPress={() => router.replace('/(tabs)/account')}><Text style={styles.buttonText}>Go to sign in</Text></Pressable>
-  </View>;
+  }, [code, error]);
   return <View style={styles.container}>{message ? <>
     <Text style={styles.title}>Unable to confirm</Text><Text style={styles.message}>{message}</Text>
     <Pressable accessibilityRole="button" testID="back" style={styles.button} onPress={() => router.replace('/(tabs)/account')}><Text style={styles.buttonText}>Back to account</Text></Pressable>
