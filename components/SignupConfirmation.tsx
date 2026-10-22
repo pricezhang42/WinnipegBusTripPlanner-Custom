@@ -6,7 +6,7 @@ import { router } from 'expo-router';
 import { Text, View } from './Themed';
 import { styles } from './AuthForm';
 import { CodeInput, codeStyles as local } from './CodeInput';
-import { authRedirect, supabase } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import { PendingSignup, resendSeconds, SIGNUP_CODE_LENGTH, SIGNUP_CONFIRMATION_MESSAGE, signupConfirmation } from '@/lib/signupConfirmation';
 import { useAuth } from '@/providers/AuthProvider';
 
@@ -62,8 +62,7 @@ export function SignupConfirmation() {
     try {
       const client = supabase;
       const next = await signupConfirmation.resend(async email => {
-        const { error } = await client.auth.resend({ type: 'signup', email,
-          options: { emailRedirectTo: authRedirect() } });
+        const { error } = await client.auth.resend({ type: 'signup', email });
         if (error) {
           // Server limits can be longer/project-wide; avoid immediately retrying a 429.
           if (error.status === 429) {

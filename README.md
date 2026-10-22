@@ -57,33 +57,29 @@ signup, sign-in, sign-out, email confirmation, and password recovery.
 2. Copy `.env.example` to `.env.local`. Set `QA1_SUPABASE_URL` and
    `QA1_SUPABASE_PUBLISHABLE_KEY` to the project URL and publishable key
    (a legacy anon key also works). Never put a secret/service-role key in the app.
-3. In Authentication → URL Configuration, allow the exact redirect
-   `bustripplanner://auth/callback`. For web development also allow the
-   corresponding URL at your actual web origin, for example
-   `http://localhost:8081/auth/callback`.
-4. In Authentication → Providers → Email, keep the email OTP length at 6 digits
+3. In Authentication → Providers → Email, keep the email OTP length at 6 digits
    (the Supabase default). In Authentication → Email Templates → Confirm signup,
-   include the code as well as the link, for example
-   `<p>Your code is <strong>{{ .Token }}</strong></p>` followed by the default
-   `{{ .ConfirmationURL }}` link. In Email Templates → Reset Password, replace the
+   replace the body with the code only, for example
+   `<p>Your confirmation code is <strong>{{ .Token }}</strong></p>`, and no link.
+   The app has no email-link screen. In Email Templates → Reset Password, replace the
    body with the code only, for example
    `<p>Your password reset code is <strong>{{ .Token }}</strong></p>`, and no link.
    Configure a production SMTP provider before opening signup to real users;
    Supabase's default mail service restricts recipients and sending volume.
-5. Run `npm ci` and `npm run android`. SecureStore is a new native dependency,
+4. Run `npm ci` and `npm run android`. SecureStore is a new native dependency,
    so rebuild an existing development client once. After environment changes,
    restart Metro with `npm run start -- --dev-client --clear`.
 
 After signup succeeds without a session, a dedicated confirmation page shows the
 submitted email, a 6-digit code entry, a 60-second resend countdown and “Back to
 sign in.” A correct code (`verifyOtp` with type `email`) signs the user in and opens
-Account; the email link still works as an alternative. The resend
-button uses the existing confirmation callback and restarts its cooldown after a
+Account. The email has no link. The resend
+button restarts its cooldown after a
 successful resend (or a server rate-limit response). Deadlines are saved per Auth
 project/email using the existing auth storage and recalculated after backgrounding;
 returning to signup during an active cooldown reopens the page without sending
 another email. Immediate-session signup still opens Account directly. Storage
-failures keep the timer in memory and show a warning. Passwords and link tokens
+failures keep the timer in memory and show a warning. Passwords and codes
 are never stored in this confirmation state or passed in navigation URLs.
 
 Password reset is code-only: “Forgot password?” emails a 6-digit code, the form
@@ -91,9 +87,6 @@ switches to a code step with a 60-second resend countdown, and a correct code
 (`verifyOtp` with type `recovery`) signs the user in and opens “Choose a new
 password.”
 
-Signup email links use PKCE: open them on the same device/browser that requested them.
-On an emulator, open the email link inside the emulator browser. An expired,
-reused, or cross-device link displays a recoverable error on the callback screen.
 Without Supabase configuration, Account displays an unavailable message while
 trip planning continues to work. Native sessions use chunked Expo SecureStore;
 web sessions use browser localStorage. Passwords are never stored by the app.
@@ -103,10 +96,10 @@ Supabase access tokens and retain database RLS. See [saved-data backend setup](d
 
 Manual verification with a configured project:
 - As a guest, open Search and Map, including with Supabase configuration absent.
-- Create an account, open its confirmation email in the same device, and sign in.
+- Create an account, enter the code from its confirmation email, and sign in.
 - After signup, verify the confirmation page/email and disabled resend countdown.
   Leave/reopen the page or background the app; the remaining time must not reset.
-  After expiry, resend once and check the new countdown, callback link, offline
+  After expiry, resend once and check the new countdown and code, offline
   error/retry and Back to sign in. Use QA for live email delivery tests.
 - Check invalid credentials, mismatched passwords, and network failure messages.
 - Restart the app and confirm the account session persists; sign out and restart.
@@ -116,7 +109,7 @@ Manual verification with a configured project:
 - Verify dark mode, keyboard layout, and Search/Map navigation after login/logout.
 
 References: [Supabase React Native auth](https://supabase.com/docs/guides/auth/quickstarts/react-native)
-and [mobile email links](https://supabase.com/docs/guides/auth/native-mobile-deep-linking).
+and [email OTP](https://supabase.com/docs/guides/auth/auth-email-passwordless#with-otp).
 
 ### Favorite locations, favorite trips, and history
 

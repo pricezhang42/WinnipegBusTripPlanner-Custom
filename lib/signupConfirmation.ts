@@ -2,7 +2,7 @@ import { authStorage } from './authStorage';
 
 export const SIGNUP_RESEND_DELAY = 60_000;
 export const SIGNUP_CODE_LENGTH = 6;
-export const SIGNUP_CONFIRMATION_MESSAGE = 'You can also open the link in the email on this device.';
+export const SIGNUP_CONFIRMATION_MESSAGE = 'Can’t find it? Check your spam folder.';
 export type PendingSignup = { email: string; resendAvailableAt: number };
 type SavedSignups = { version: 1; currentEmail: string | null; emails: Record<string, PendingSignup> };
 type Storage = Pick<typeof authStorage, 'getItem' | 'setItem'>;
@@ -12,7 +12,7 @@ export function resendSeconds(pending: PendingSignup | null, now = Date.now()) {
   return pending ? Math.max(0, Math.ceil((pending.resendAvailableAt - now) / 1000)) : 0;
 }
 
-/** Only email addresses and deadlines are saved, never passwords or email-link tokens. */
+/** Only email addresses and deadlines are saved, never passwords or codes. */
 export function createSignupConfirmationStore(storage: Storage, project: string) {
   const key = `signup-confirmation.${project.replace(/[^a-z0-9]/gi, '_')}`;
   let saved: SavedSignups | null = null;

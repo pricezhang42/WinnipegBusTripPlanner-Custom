@@ -15,7 +15,6 @@ jest.mock('../../providers/AuthProvider', () => ({ useAuth: () => ({ session: nu
 jest.mock('../../lib/supabase', () => ({
   supabase: { auth: { resend: jest.fn(async () => ({ error: null })),
     verifyOtp: jest.fn(async () => ({ data: { session: { access_token: 't' } }, error: null })) } },
-  authRedirect: () => 'bustripplanner://auth/callback',
 }));
 jest.mock('../../lib/signupConfirmation', () => ({
   ...jest.requireActual<typeof import('../../lib/signupConfirmation')>('../../lib/signupConfirmation'),
@@ -43,7 +42,7 @@ afterEach(async () => {
 
 test('shows the requested message/email, disables resend for 60 seconds, then enables it', async () => {
   await open();
-  expect(text()).toContain('You can also open the link in the email on this device.');
+  expect(text()).toContain('Can’t find it? Check your spam folder.');
   expect(text()).toContain('user@example.com');
   expect(text()).toContain('Resend code in 60s');
   expect(button().props.disabled).toBe(true);
@@ -59,7 +58,7 @@ test('resends with the existing callback, blocks double taps and restarts the co
   const press = button().props.onPress;
   await act(async () => { await Promise.all([press(), press()]); });
   expect(supabase!.auth.resend).toHaveBeenCalledTimes(1);
-  expect(supabase!.auth.resend).toHaveBeenCalledWith({type:'signup',email:'user@example.com',options:{emailRedirectTo:'bustripplanner://auth/callback'}});
+  expect(supabase!.auth.resend).toHaveBeenCalledWith({type:'signup',email:'user@example.com'});
   expect(text()).toContain('Resend code in 60s');
   expect(text()).toContain('A new code is on its way.');
   expect(button().props.disabled).toBe(true);
