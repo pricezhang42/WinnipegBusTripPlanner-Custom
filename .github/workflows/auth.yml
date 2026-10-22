@@ -47,7 +47,7 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci --ignore-scripts
-      - run: npx jest --runInBand --watchAll=false lib/__tests__/AuthForm.test.tsx lib/__tests__/signupConfirmation.test.ts lib/__tests__/authCallback.test.ts lib/__tests__/authStorage.test.ts components/__tests__/SignupConfirmation.test.tsx
+      - run: npx jest --runInBand --watchAll=false lib/__tests__/AuthForm.test.tsx lib/__tests__/signupConfirmation.test.ts lib/__tests__/authStorage.test.ts components/__tests__/SignupConfirmation.test.tsx
       - run: npm run export -- --api ci --auth ci --platform android --output-dir dist/auth-ci
         env:
           CI_API_URL: https://api.example.com

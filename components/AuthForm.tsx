@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Text, View, useThemeColor } from './Themed';
 import { CodeInput, codeStyles } from './CodeInput';
-import { supabase, authRedirect } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import { resendSeconds, signupConfirmation } from '@/lib/signupConfirmation';
 
 // Supabase's email OTP length and its 60-second per-address email limit.
@@ -65,7 +65,7 @@ export function AuthForm({ reset = false }: { reset?: boolean }) {
           router.push('/auth/confirm-email');
           return;
         }
-        const { data, error } = await supabase.auth.signUp({ email: email.trim(), password, options: { emailRedirectTo: authRedirect() } });
+        const { data, error } = await supabase.auth.signUp({ email: email.trim(), password });
         if (error) throw error;
         // With confirmation on, Supabase hides existing accounts behind a user with no identities and sends no email.
         if (!data.session && data.user?.identities?.length === 0) {

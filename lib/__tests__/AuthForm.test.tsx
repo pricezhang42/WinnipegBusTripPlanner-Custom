@@ -15,7 +15,6 @@ jest.mock('../supabase', () => ({
     verifyOtp: jest.fn(async () => ({ data: { session: { access_token: 'test' } }, error: null })),
     updateUser: jest.fn(async () => ({ error: null })),
   } },
-  authRedirect: () => 'bustripplanner://auth/callback',
 }));
 jest.mock('../signupConfirmation', () => ({
   resendSeconds: (pending: { resendAvailableAt: number }) => Math.max(0, Math.ceil((pending.resendAvailableAt - Date.now()) / 1000)),
@@ -113,7 +112,7 @@ async function signupForm() {
 test('signup requiring confirmation remembers the email and navigates without putting credentials in the URL', async () => {
   const tree = await signupForm();
   await act(async () => { await tree.root.findAllByType(Pressable)[0].props.onPress(); });
-  expect(supabase!.auth.signUp).toHaveBeenCalledWith({email:'test@example.com',password:'valid-password',options:{emailRedirectTo:'bustripplanner://auth/callback'}});
+  expect(supabase!.auth.signUp).toHaveBeenCalledWith({email:'test@example.com',password:'valid-password'});
   expect(signupConfirmation.remember).toHaveBeenCalledWith('test@example.com');
   expect(router.push).toHaveBeenCalledWith('/auth/confirm-email');
   expect(JSON.stringify(tree.toJSON())).toContain('Welcome back');
