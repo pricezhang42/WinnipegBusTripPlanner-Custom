@@ -37,10 +37,14 @@ shares display Unavailable.
 | `insufficient_comparable_history` | No timing group with enough evidence |
 | `data_outdated` | Artifact age or trip horizon exceeds 30 days, or cutoff is in the future |
 | `historical_date_unsupported` | Trip date is on/before the data cutoff |
-| `holiday_calendar_unsupported` | Listed holiday or unsupported calendar year |
+| `holiday_calendar_unsupported` | Holiday or observed holiday in the backend service calendar, or a date outside its coverage |
 
-The current backend calendar supports 2026. These restrictions are unchanged;
-calendar expansion and artifact freshness work are tracked separately. Missing
+Trip dates are checked against the backend's versioned service calendar
+(`src/serviceCalendar.ts`, currently `winnipeg-service-2026-2027-v1`, covering
+2026-01-01 to 2027-12-31). Holidays and conservative observed-holiday weekdays are
+excluded, and any date outside the calendar is unavailable rather than treated as
+ordinary service. The backend README ("Service calendar") explains how the
+calendar is extended and released alongside artifact refreshes. Missing
 reliability never prevents a trip plan from being returned.
 
 ## Pass-up data boundary
