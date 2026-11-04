@@ -19,7 +19,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#004A96"
       },
       "edgeToEdgeEnabled": true,
       "package": "com.anonymous.BusTripPlanner",
